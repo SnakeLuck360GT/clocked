@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key><string>Clocked</string>
+    <key>CFBundleDisplayName</key><string>Clocked</string>
+    <key>CFBundleExecutable</key><string>Clocked</string>
+    <key>CFBundleIdentifier</key><string>com.davidxie.clocked</string>
+    <key>CFBundlePackageType</key><string>APPL</string>
+    <key>CFBundleShortVersionString</key><string>3.0</string>
+    <key>CFBundleVersion</key><string>1</string>
+    <key>LSMinimumSystemVersion</key><string>26.0</string>
+    <key>CFBundleIconFile</key><string>AppIcon</string>
+    <key>NSHighResolutionCapable</key><true/>
+    <key>NSCameraUsageDescription</key>
+    <string>During a study session (or a sensor test or posture recording you start): analyzes one low-res frame per second on this Mac to notice if you're on your phone. Frames are never saved or sent anywhere.</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>During a study session (or a sensor test you start): classifies room sound (music, speech, laughter, writing) on this Mac to notice phone use. No audio is recorded, saved or sent anywhere.</string>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>During a study session: reads the active browser tab's title and address to check it's study-related, and (if you turn them on) sends reminders to your iPhone through Messages and runs your Focus shortcuts.</string>
+</dict>
+</plist>

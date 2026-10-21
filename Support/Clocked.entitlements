@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- App Sandbox with NO network entitlement: macOS itself blocks this app from making any network connection. -->
+    <key>com.apple.security.app-sandbox</key><true/>
+    <key>com.apple.security.device.camera</key><true/>
+    <key>com.apple.security.device.audio-input</key><true/>
+    <key>com.apple.security.automation.apple-events</key><true/>
+    <!-- The only apps we may send Apple Events to: browsers, to read the active tab's title + URL. -->
+    <key>com.apple.security.temporary-exception.apple-events</key>
+    <array>
+        <string>com.apple.Safari</string>
+        <string>com.apple.SafariTechnologyPreview</string>
+        <string>com.google.Chrome</string>
+        <string>com.google.Chrome.beta</string>
+        <string>com.brave.Browser</string>
+        <string>com.microsoft.edgemac</string>
+        <string>com.vivaldi.Vivaldi</string>
+        <string>company.thebrowser.Browser</string>
+        <string>org.chromium.Chromium</string>
+        <!-- Opt-in: reminders to your iPhone via Messages, and Focus modes via Shortcuts. -->
+        <string>com.apple.MobileSMS</string>
+        <string>com.apple.shortcuts.events</string>
+    </array>
+</dict>
+</plist>

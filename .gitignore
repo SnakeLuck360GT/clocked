@@ -1,0 +1,7 @@
+.build/
+build/
+Models/
+supabase.env
+.DS_Store
+# Notes for Claude sessions, kept local.
+HANDOFF.md
