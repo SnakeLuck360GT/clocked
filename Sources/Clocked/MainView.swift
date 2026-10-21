@@ -3,12 +3,12 @@ import SwiftUI
 enum Pane: String, CaseIterable, Identifiable {
     case today = "Today", stats = "Stats", sessions = "Sessions", groups = "Groups"
     // Settings, listed in the sidebar under their own heading.
-    case general = "General", detection = "Detection", postures = "Postures", learning = "Learning"
+    case general = "General", appearance = "Appearance", detection = "Detection", postures = "Postures", learning = "Learning"
     case accountability = "Accountability", sites = "Sites & Apps", privacy = "Privacy"
     var id: String { rawValue }
 
     static let main: [Pane] = [.today, .stats, .sessions, .groups]
-    static let settings: [Pane] = [.general, .detection, .postures, .learning, .accountability, .sites, .privacy]
+    static let settings: [Pane] = [.general, .appearance, .detection, .postures, .learning, .accountability, .sites, .privacy]
 
     var symbol: String {
         switch self {
@@ -17,6 +17,7 @@ enum Pane: String, CaseIterable, Identifiable {
         case .sessions: return "list.bullet.rectangle"
         case .groups: return "person.3"
         case .general: return "gearshape"
+        case .appearance: return "paintbrush"
         case .detection: return "eye"
         case .postures: return "figure.seated.side.left"
         case .learning: return "brain"
@@ -54,6 +55,7 @@ struct MainView: View {
                 case .sessions: SessionsPane()
                 case .groups: GroupsPane()
                 case .general: GeneralSettings()
+                case .appearance: AppearanceSettings()
                 case .detection: DetectionSettings()
                 case .postures: PosturesPane()
                 case .learning: LearningPane()

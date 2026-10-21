@@ -48,7 +48,8 @@ extension SessionController {
         if case .onBreak(let until) = phase {
             if now >= until {
                 resume()
-                hud.show(symbol: "timer", title: "Break over", message: "Session resumed.", sound: settings.nudgeSound)
+                let message = settings.pomodoro ? "Round \(pomodoroRounds + 1) of \(topicName)." : "Session resumed."
+                hud.show(symbol: "timer", title: "Break over", message: message, sound: settings.nudgeSound)
             }
             return
         }
@@ -67,6 +68,8 @@ extension SessionController {
         guard phase == .running else { return } // sensor test: readings only
 
         elapsed += dt
+        let focusedBefore = focusedTime
+        defer { if phase == .running { advancePomodoro(by: focusedTime - focusedBefore) } }
         let idle = cues.secondsSinceInput
         let cameraOn = settings.useCamera && cameraState == .on
         let noPersonFor = now.timeIntervalSince(lastPersonSeen ?? cameraStartedAt)
@@ -88,7 +91,7 @@ extension SessionController {
         } else {
             focusStreak += dt
             studyLog.noteFocusStreak(focusStreak, at: now)
-            let breakAfter = settings.breakReminderMinutes * 60
+            let breakAfter = settings.pomodoro ? 0 : settings.breakReminderMinutes * 60
             if breakAfter > 0, focusStreak >= breakAfter, !breakSuggested {
                 breakSuggested = true
                 hud.show(symbol: "cup.and.saucer", title: "Time for a break",
@@ -177,6 +180,21 @@ extension SessionController {
     }
 
     /// Suspicion faded without a phone flag: the held-back time was study after all.
+    /// Pomodoro: only focused time fills a round, so distractions push the break back.
+    func advancePomodoro(by focused: TimeInterval) {
+        guard settings.pomodoro, focused > 0 else { return }
+        pomodoroFocus += focused
+        guard pomodoroFocus >= settings.pomodoroMinutes * 60 else { return }
+        pomodoroRounds += 1
+        pomodoroFocus = 0
+        let long = pomodoroRounds % settings.roundsPerSet == 0
+        let minutes = long ? settings.longBreakMinutes : settings.shortBreakMinutes
+        takeBreak(minutes: minutes, long: long)
+        hud.show(symbol: "cup.and.saucer", title: "Round \(pomodoroRounds) done",
+                 message: "\(Int(minutes))-minute \(long ? "long " : "")break. The session carries on after it.",
+                 actions: [("Skip Break", { [weak self] in self?.resume() })], tint: .green, sound: settings.nudgeSound)
+    }
+
     func refundHeldTime(now: Date = Date()) {
         let t = ledger.releaseToStudy()
         suspecting = false

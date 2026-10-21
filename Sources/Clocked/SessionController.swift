@@ -122,6 +122,11 @@ final class SessionController: ObservableObject {
     /// Unbroken focus so far (resets when distracted or away).
     @Published var focusStreak: TimeInterval = 0
     var breakSuggested = false
+    /// Pomodoro: rounds finished this session, and focused time in the current round.
+    @Published var pomodoroRounds = 0
+    @Published var pomodoroFocus: TimeInterval = 0
+    /// Whether the current break is a Pomodoro long break.
+    @Published var longBreak = false
     @Published var reminderStatus: String?
     @Published var shortcutStatus: String?
 
@@ -313,6 +318,9 @@ final class SessionController: ObservableObject {
         phoneGain = 1 + (phoneGain - 1) / 2
         focusStreak = 0
         breakSuggested = false
+        pomodoroRounds = 0
+        pomodoroFocus = 0
+        longBreak = false
         sessionEpisode = learner.store.newEpisode()
         sessionGoal = settings.goalMinutes * 60
         remindersSent = 0
@@ -335,14 +343,17 @@ final class SessionController: ObservableObject {
         if settings.runShortcuts { runShortcut(settings.startShortcut) }
     }
 
-    func takeBreak() {
+    /// Starts a break of `minutes` (the Break length setting, or the short Pomodoro break, if not given).
+    func takeBreak(minutes: Double? = nil, long: Bool = false) {
         guard phase == .running else { return }
         refundHeldTime()
         focusStreak = 0
         breakSuggested = false
         resetEscalation()
         stopSensors()
-        phase = .onBreak(until: Date().addingTimeInterval(settings.breakMinutes * 60))
+        longBreak = long
+        let length = minutes ?? (settings.pomodoro ? settings.shortBreakMinutes : settings.breakMinutes)
+        phase = .onBreak(until: Date().addingTimeInterval(length * 60))
         status = .onBreak
         hud.hide(animated: true)
     }

@@ -4,7 +4,12 @@
 
 - Pick a subject and press play. The clock only counts while you're focused.
 - Set a session goal (50 minutes by default). Time lost to distractions is added on.
+- Pomodoro mode (General → Timer): 25-minute rounds with breaks that start on their own, and a long break every 4 rounds. Only focused time counts towards a round.
 - Shortcuts: ⌘1–⌘9 start a subject, ⌥⌘B break, ⇧⌘E end, ⌃⌘F full-screen timer.
+
+## Customising
+
+- Settings → Appearance: light, dark or system, six accent colours, the timer font, the Focus View background, and whether the time shows in the menu bar.
 
 ## What it checks
 
@@ -42,13 +47,14 @@ Strictness can't be changed during a session.
 
 - Off until you turn them on.
 - Friends join with an invite code, which is also the encryption key.
+- You can add a profile photo by clicking your avatar in Groups. Sharing it is optional, and it's encrypted like everything else.
 - Syncing runs in a separate helper. It's the only part with network access and it can't use the camera or mic.
 
 ## Privacy
 
 - The camera, mic and tab checks only run during a session.
 - The app has no network permission. Check with `codesign -d --entitlements - /Applications/Clocked.app`.
-- Saved on your Mac: settings, daily totals, postures, the last 30 sessions and the learning examples.
+- Saved on your Mac: settings, daily totals, postures, the last 30 sessions, the learning examples and your profile photo if you add one.
 - Settings → Privacy → Delete All My Data removes everything.
 
 ## Known limits

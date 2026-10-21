@@ -91,7 +91,7 @@ struct TodayHero: View {
                     Text(Date().formatted(.dateTime.weekday(.wide).month(.abbreviated).day()))
                         .font(compact ? .caption2 : .callout).foregroundStyle(.secondary)
                     Text(formatHMS(c.todayTotal))
-                        .font(.system(size: compact ? 28 : 46, weight: .medium, design: .rounded).monospacedDigit())
+                        .font(.system(size: compact ? 28 : 46, weight: .medium, design: Theme.timerDesign).monospacedDigit())
                         .lineLimit(1)
                         .minimumScaleFactor(0.5)
                         .foregroundStyle(paused ? Color.secondary : Color.primary)
@@ -110,7 +110,9 @@ struct TodayHero: View {
             }
             .frame(width: diameter, height: diameter)
 
-            if isActive, c.studyGoal > 0 {
+            if isActive, settings.pomodoro {
+                PomodoroProgress(width: diameter)
+            } else if isActive, c.studyGoal > 0 {
                 VStack(spacing: 4) {
                     ProgressBar(progress: c.focusedTime / c.studyGoal, color: c.currentSubject?.color ?? Theme.accent)
                         .frame(width: diameter)
@@ -120,6 +122,48 @@ struct TodayHero: View {
             }
         }
         .frame(maxWidth: .infinity)
+    }
+}
+
+/// Pomodoro: the current round's progress (or the break countdown), with a dot per round in the set.
+struct PomodoroProgress: View {
+    @EnvironmentObject var c: SessionController
+    @ObservedObject var settings = AppSettings.shared
+    var width: CGFloat
+    var onDark = false
+
+    private var secondary: Color { onDark ? .white.opacity(0.6) : .secondary }
+    private var color: Color { c.currentSubject?.color ?? Theme.accent }
+    /// Dots filled in the current set; all of them during the long break that ends it.
+    private var done: Int { c.longBreak && c.phase.isBreak ? settings.roundsPerSet : c.pomodoroRounds % settings.roundsPerSet }
+
+    var body: some View {
+        VStack(spacing: onDark ? 10 : 4) {
+            if onDark {
+                // Focus View: the big clock already counts down, so just say which round.
+                Text(c.phase.isBreak ? (c.longBreak ? "Long break" : "Break") : "Round \(c.pomodoroRounds % settings.roundsPerSet + 1) of \(settings.roundsPerSet)")
+            } else if case .onBreak(let until) = c.phase {
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    Text("\(c.longBreak ? "Long break" : "Break") · \(formatClock(max(0, until.timeIntervalSince(context.date)))) left")
+                }
+            } else {
+                ProgressBar(progress: c.pomodoroFocus / (settings.pomodoroMinutes * 60), color: color, height: onDark ? 8 : 6)
+                    .frame(width: width)
+                Text("Round \(c.pomodoroRounds + 1) · \(Int(((settings.pomodoroMinutes * 60 - c.pomodoroFocus) / 60).rounded(.up))) min left")
+            }
+            HStack(spacing: onDark ? 8 : 5) {
+                ForEach(0..<settings.roundsPerSet, id: \.self) { i in
+                    Circle()
+                        .fill(i < done ? color : (onDark ? Color.white.opacity(0.2) : Theme.track))
+                        .frame(width: onDark ? 9 : 6, height: onDark ? 9 : 6)
+                }
+            }
+            .accessibilityElement()
+            .accessibilityLabel("\(done) of \(settings.roundsPerSet) rounds done")
+        }
+        .font(onDark ? .title3 : .caption)
+        .foregroundStyle(secondary)
+        .monospacedDigit()
     }
 }
 

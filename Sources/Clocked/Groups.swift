@@ -1,6 +1,8 @@
 import CryptoKit
 import Foundation
 import Combine
+import ImageIO
+import UniformTypeIdentifiers
 
 // MARK: - Model
 
@@ -31,6 +33,7 @@ struct MemberPayload: Codable, Equatable {
     var currentSubject: String?
     var subjects: [String: Double]?    // per-subject seconds today
     var updated: Date
+    var photo: String?                 // base64 JPEG, about 64 px (see ProfilePhoto); optional so older payloads still decode
 }
 
 struct GroupMember: Identifiable, Equatable {
@@ -59,6 +62,7 @@ enum GroupCrypto {
 
     static func seal(_ payload: MemberPayload, key: String) throws -> String {
         let encoder = JSONEncoder(); encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = .withoutEscapingSlashes   // keeps a base64 photo from growing "/" into "\/"
         let box = try ChaChaPoly.seal(try encoder.encode(payload), using: try symmetricKey(key))
         return box.combined.base64EncodedString()
     }
@@ -106,6 +110,63 @@ enum GroupError: LocalizedError {
         case .http(let code, let body): return "Server error \(code)\(body.isEmpty ? "" : ": \(body.prefix(140))")"
         case .transport(let message): return message
         }
+    }
+}
+
+// MARK: - Profile photo
+
+/// Your profile picture, cropped to a centred square and kept small. A 256 px copy stays on this Mac; groups get a
+/// 64 px copy only if you choose to share it, inside the encrypted payload like everything else.
+enum ProfilePhoto {
+    static let localSize = 256
+    static let sharedSize = 64
+    /// Base64 characters a shared photo may use. The server refuses payloads over 16,384 characters (see setupSQL);
+    /// with this cap a full payload stays under about 8,000.
+    static let sharedBudget = 5000
+
+    /// A square JPEG of the middle of an image file or image data. Nil if it isn't an image.
+    static func square(_ source: CGImageSource, size: Int, quality: Double) -> Data? {
+        guard let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let w = props[kCGImagePropertyPixelWidth] as? Int, let h = props[kCGImagePropertyPixelHeight] as? Int,
+              w > 0, h > 0 else { return nil }
+        // Decode only as many pixels as needed: the short side ends up at `size` (or the original, if smaller).
+        let longSide = Double(size) * Double(max(w, h)) / Double(min(w, h))
+        let options: [CFString: Any] = [kCGImageSourceCreateThumbnailFromImageAlways: true,
+                                        kCGImageSourceCreateThumbnailWithTransform: true,   // respects camera rotation
+                                        kCGImageSourceThumbnailMaxPixelSize: Int(longSide.rounded(.up))]
+        guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return nil }
+        let side = min(image.width, image.height)
+        guard let cropped = image.cropping(to: CGRect(x: (image.width - side) / 2, y: (image.height - side) / 2, width: side, height: side)),
+              let context = CGContext(data: nil, width: size, height: size, bitsPerComponent: 8, bytesPerRow: 0,
+                                      space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                                      bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return nil }
+        context.setFillColor(CGColor(gray: 1, alpha: 1))   // transparent images go on white, not black
+        context.fill(CGRect(x: 0, y: 0, width: size, height: size))
+        context.interpolationQuality = .high
+        context.draw(cropped, in: CGRect(x: 0, y: 0, width: size, height: size))
+        guard let scaled = context.makeImage() else { return nil }
+        let out = NSMutableData()
+        guard let dest = CGImageDestinationCreateWithData(out, UTType.jpeg.identifier as CFString, 1, nil) else { return nil }
+        CGImageDestinationAddImage(dest, scaled, [kCGImageDestinationLossyCompressionQuality: quality] as CFDictionary)
+        return CGImageDestinationFinalize(dest) ? out as Data : nil
+    }
+
+    static func square(_ data: Data, size: Int, quality: Double) -> Data? {
+        CGImageSourceCreateWithData(data as CFData, nil).flatMap { square($0, size: size, quality: quality) }
+    }
+
+    static func square(_ url: URL, size: Int, quality: Double) -> Data? {
+        CGImageSourceCreateWithURL(url as CFURL, nil).flatMap { square($0, size: size, quality: quality) }
+    }
+
+    /// The copy groups see: 64 px, or smaller and rougher if a busy photo would go over the budget.
+    static func shared(from jpeg: Data) -> String? {
+        for (size, quality) in [(sharedSize, 0.7), (56, 0.6), (48, 0.5), (40, 0.4)] {
+            if let small = square(jpeg, size: size, quality: quality), (small.count + 2) / 3 * 4 <= sharedBudget {
+                return small.base64EncodedString()
+            }
+        }
+        return nil
     }
 }
 
@@ -285,6 +346,9 @@ final class GroupSync: ObservableObject {
     @Published var shareLive: Bool { didSet { save() } }
     @Published var shareWeek: Bool { didSet { save() } }
     @Published var shareSubjects: Bool { didSet { save() } }
+    @Published var sharePhoto: Bool { didSet { save() } }
+    /// Your profile picture (a 256 px JPEG), kept on this Mac. Groups only get a small copy, and only with `sharePhoto` on.
+    @Published private(set) var photo: Data?
     @Published var supabaseURL: String { didSet { save() } }
     @Published var supabaseKey: String { didSet { save() } }
     /// Use your own Supabase project instead of Clocked's database (Settings → Privacy). Everyone in a group must use
@@ -302,6 +366,9 @@ final class GroupSync: ObservableObject {
     }
 
     private let file = Storage.file("groups.json")
+    private let photoFile = Storage.file("photo.jpg")
+    /// The small base64 copy that goes into payloads, made once when the photo changes.
+    private var sharedPhoto: String?
     private let transport: SyncTransport
     private var timer: Timer?
     /// Supplies what to share (set by the session controller).
@@ -314,6 +381,7 @@ final class GroupSync: ObservableObject {
         var supabaseURL = "", supabaseKey = ""
         var onlineEnabled: Bool?
         var useOwnDatabase: Bool?
+        var sharePhoto: Bool?
     }
 
     init(transport: SyncTransport = XPCSyncTransport()) {
@@ -322,6 +390,10 @@ final class GroupSync: ObservableObject {
         groups = saved.groups
         nickname = saved.nickname
         shareToday = saved.shareToday; shareLive = saved.shareLive; shareWeek = saved.shareWeek; shareSubjects = saved.shareSubjects
+        sharePhoto = saved.sharePhoto ?? false
+        let savedPhoto = try? Data(contentsOf: photoFile)
+        photo = savedPhoto
+        sharedPhoto = savedPhoto.flatMap(ProfilePhoto.shared)
         supabaseURL = saved.supabaseURL; supabaseKey = saved.supabaseKey
         // Earlier versions had no switch; a backend you had already connected counts as having opted in.
         onlineEnabled = saved.onlineEnabled ?? !saved.supabaseURL.isEmpty
@@ -415,6 +487,7 @@ final class GroupSync: ObservableObject {
                 if !shareLive { payload.studyingNow = nil; payload.currentSubject = nil }
                 if !shareWeek { payload.weekSeconds = nil; payload.streak = nil }
                 if !shareSubjects { payload.subjects = nil }
+                payload.photo = sharePhoto ? sharedPhoto : nil
                 try await client.push(payload, to: group)
                 members[group.groupID] = try await client.fetch(group)
             }
@@ -436,6 +509,20 @@ final class GroupSync: ObservableObject {
         guard let client else { return onlineEnabled ? GroupError.notConfigured.localizedDescription : "Online features are off." }
         let probe = StudyGroup(name: "probe", key: GroupCrypto.newKey(), memberID: UUID().uuidString, memberSecret: GroupCrypto.newSecret())
         do { _ = try await client.fetch(probe); return nil } catch { return error.localizedDescription }
+    }
+
+    /// Saves a new profile picture (already cropped and shrunk by ProfilePhoto). Groups see it on the next sync if shared.
+    func setPhoto(_ jpeg: Data) {
+        try? FileManager.default.createDirectory(at: photoFile.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try? jpeg.write(to: photoFile, options: [.atomic, .completeFileProtection])
+        photo = jpeg
+        sharedPhoto = ProfilePhoto.shared(from: jpeg)
+    }
+
+    func removePhoto() {
+        try? FileManager.default.removeItem(at: photoFile)
+        photo = nil
+        sharedPhoto = nil
     }
 
     @discardableResult
@@ -480,6 +567,8 @@ final class GroupSync: ObservableObject {
         stopSyncing()
         groups = []
         nickname = ""
+        removePhoto()
+        sharePhoto = false
         supabaseURL = ""; supabaseKey = ""
         useOwnDatabase = false
         onlineEnabled = false
@@ -489,7 +578,7 @@ final class GroupSync: ObservableObject {
     private func save() {
         let saved = Saved(groups: groups, nickname: nickname, shareToday: shareToday, shareLive: shareLive, shareWeek: shareWeek,
                           shareSubjects: shareSubjects, supabaseURL: supabaseURL, supabaseKey: supabaseKey, onlineEnabled: onlineEnabled,
-                          useOwnDatabase: useOwnDatabase)
+                          useOwnDatabase: useOwnDatabase, sharePhoto: sharePhoto)
         try? FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
         if let data = try? JSONEncoder().encode(saved) { try? data.write(to: file, options: [.atomic, .completeFileProtection]) }
     }

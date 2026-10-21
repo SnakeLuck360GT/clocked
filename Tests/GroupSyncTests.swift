@@ -2,6 +2,7 @@
 // as SupabaseGroups.setupSQL. Checks encryption, invites, and that strangers can't read or tamper. Run with Tests/run.sh.
 import CryptoKit
 import Foundation
+import ImageIO
 
 var failures = 0
 func check(_ ok: Bool, _ message: String) {
@@ -106,6 +107,40 @@ func payload(_ name: String, today: Double) -> MemberPayload {
     let afterLeave = try await api.fetch(alice)
     check(afterLeave.map(\.payload.name) == ["Alice"], "leaving removes your row")
 
+    // Profile photos: optional, encrypted with the rest, and small enough for the server's size limit.
+    let picture = ProfilePhoto.square(testImage(width: 1200, height: 900, noise: false), size: ProfilePhoto.localSize, quality: 0.85)
+    let pictureSize = picture.flatMap { CGImageSourceCreateWithData($0 as CFData, nil) }.flatMap { CGImageSourceCreateImageAtIndex($0, 0, nil) }
+    check(pictureSize?.width == 256 && pictureSize?.height == 256, "a landscape photo is cropped to a 256 px square")
+    var withPhoto = payload("Alice", today: 3600)
+    withPhoto.photo = picture.flatMap(ProfilePhoto.shared)
+    let sealedPhoto = try GroupCrypto.seal(withPhoto, key: key)
+    let openedPhoto = try GroupCrypto.open(sealedPhoto, key: key)
+    check(withPhoto.photo != nil && openedPhoto.photo == withPhoto.photo, "a payload with a photo round-trips through encryption")
+
+    // What a client from before photos sent: no photo field, slashes escaped.
+    let oldJSON = #"{"name":"Old","groupName":"G","day":"2026-10-20","todaySeconds":60,"updated":"2026-10-20T10:00:00Z","subjects":{"Maths\/Stats":60}}"#
+    let oldBox = try ChaChaPoly.seal(Data(oldJSON.utf8), using: SymmetricKey(data: GroupCrypto.data(base64url: key)!))
+    let old = try? GroupCrypto.open(oldBox.combined.base64EncodedString(), key: key)
+    check(old?.name == "Old" && old?.photo == nil && old?.subjects?["Maths/Stats"] == 60, "an older payload without a photo still decodes")
+
+    // Worst case: the longest realistic nickname, 8 subjects, and a photo of pure noise (the hardest thing for JPEG).
+    var big = payload(String(repeating: "Alexandra-Catherine ", count: 3), today: 20_000)
+    big.groupName = "Year 12 Chemistry and Physics Study Group"
+    big.currentSubject = "Advanced Mathematics Extension 2"
+    big.subjects = Dictionary(uniqueKeysWithValues: ["Advanced Mathematics Extension 2", "Chemistry (HSC)", "Physics Module 7",
+        "English Advanced", "Modern History Research", "Economics Case Studies", "Software Engineering", "Biology Practicals"]
+        .enumerated().map { ($1, Double(1000 + $0 * 977) + 0.123456789) })
+    let noAvatar = try GroupCrypto.seal(big, key: key).count
+    // The noise is made at the size it's sent at, so downscaling can't smooth it out.
+    for (label, side, noise) in [("photo", 3024, false), ("noise photo", ProfilePhoto.sharedSize, true)] {
+        big.photo = ProfilePhoto.square(testImage(width: side, height: side * 4 / 3, noise: noise), size: ProfilePhoto.localSize, quality: 0.85)
+            .flatMap(ProfilePhoto.shared)
+        let size = try GroupCrypto.seal(big, key: key).count
+        print("     sizes: no photo \(noAvatar), with \(label) \(size) characters (photo \(big.photo?.count ?? 0)); limit 16384")
+        check(big.photo != nil && size < 10_000, "a full payload with a \(label) stays well under the 16,384-character limit")
+    }
+    check(ProfilePhoto.square(Data("not an image".utf8), size: 64, quality: 0.7) == nil, "non-images are refused")
+
     // The setup SQL defines the table, the policies and grants used above.
     let sql = SupabaseGroups.setupSQL
     check(["enable row level security", "for select", "for insert", "for update", "for delete", "x-group-id", "x-member-secret", "grant select"]
@@ -113,6 +148,28 @@ func payload(_ name: String, today: Double) -> MemberPayload {
 }
 
 extension MemberPayload { func with(updated: Date) -> MemberPayload { var p = self; p.updated = updated; return p } }
+
+/// A PNG test picture: a smooth gradient with some shapes, or random noise.
+func testImage(width: Int, height: Int, noise: Bool) -> Data {
+    let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+                            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+    if noise {
+        let pixels = context.data!.assumingMemoryBound(to: UInt8.self)
+        for i in 0..<(context.bytesPerRow * height) { pixels[i] = i % 4 == 3 ? 255 : UInt8.random(in: 0...255) }
+    } else {
+        for y in stride(from: 0, to: height, by: 8) {
+            context.setFillColor(CGColor(red: Double(y) / Double(height), green: 0.5, blue: 1 - Double(y) / Double(height), alpha: 1))
+            context.fill(CGRect(x: 0, y: y, width: width, height: 8))
+        }
+        context.setFillColor(CGColor(red: 1, green: 0.9, blue: 0.8, alpha: 1))
+        context.fillEllipse(in: CGRect(x: width / 3, y: height / 4, width: width / 3, height: height / 2))
+    }
+    let out = NSMutableData()
+    let dest = CGImageDestinationCreateWithData(out, "public.png" as CFString, 1, nil)!
+    CGImageDestinationAddImage(dest, context.makeImage()!, nil)
+    CGImageDestinationFinalize(dest)
+    return out as Data
+}
 
 Task { @MainActor in
     do { try await run() } catch { check(false, "unexpected error: \(error)") }

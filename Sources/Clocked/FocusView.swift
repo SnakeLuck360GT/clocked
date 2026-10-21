@@ -9,15 +9,27 @@ struct FocusView: View {
     private var subjectColor: Color { c.currentSubject?.color ?? Theme.accent }
     private var paused: Bool { c.studyClockPaused || c.phase.isBreak }
 
+    @ObservedObject private var settings = AppSettings.shared
+
     private var progress: Double {
-        c.studyGoal > 0 ? c.focusedTime / c.studyGoal : c.todayTotal / max(AppSettings.shared.dailyGoalMinutes * 60, 60)
+        if settings.pomodoro { return c.pomodoroFocus / (settings.pomodoroMinutes * 60) }
+        return c.studyGoal > 0 ? c.focusedTime / c.studyGoal : c.todayTotal / max(settings.dailyGoalMinutes * 60, 60)
+    }
+
+    @ViewBuilder private var background: some View {
+        switch settings.focusBackground {
+        case .dark: LinearGradient(colors: Theme.night, startPoint: .top, endPoint: .bottom)
+        case .black: Color.black
+        case .subject: LinearGradient(colors: [subjectColor.mix(with: .black, by: 0.55), subjectColor.mix(with: .black, by: 0.85)],
+                                      startPoint: .top, endPoint: .bottom)
+        }
     }
 
     var body: some View {
         GeometryReader { geo in
             let diameter = min(geo.size.width, geo.size.height) * 0.55
             ZStack(alignment: .topTrailing) {
-                LinearGradient(colors: Theme.night, startPoint: .top, endPoint: .bottom).ignoresSafeArea()
+                background.ignoresSafeArea()
                 VStack(spacing: 28) {
                     if c.phase == .running || c.phase.isBreak {
                         HStack(spacing: 8) {
@@ -28,8 +40,10 @@ struct FocusView: View {
                             ProgressRing(progress: progress, color: paused ? .gray : subjectColor,
                                          lineWidth: max(14, diameter * 0.045), trackColor: .white.opacity(0.12))
                             VStack(spacing: 10) {
-                                Text(formatHMS(c.focusedTime))
-                                    .font(.system(size: diameter * 0.17, weight: .medium, design: .rounded).monospacedDigit())
+                                TimelineView(.periodic(from: .now, by: 1)) { context in
+                                    Text(bigClock(at: context.date))
+                                }
+                                    .font(.system(size: diameter * 0.17, weight: .medium, design: Theme.timerDesign).monospacedDigit())
                                     .foregroundStyle(paused ? .white.opacity(0.5) : .white)
                                     .contentTransition(.numericText())
                                 Text(statusText)
@@ -38,7 +52,9 @@ struct FocusView: View {
                             }
                         }
                         .frame(width: diameter, height: diameter)
-                        if c.studyGoal > 0 {
+                        if settings.pomodoro {
+                            PomodoroProgress(width: diameter * 0.6, onDark: true)
+                        } else if c.studyGoal > 0 {
                             Text(c.goalReached ? "Session goal reached" : "\(Int(((c.studyGoal - c.focusedTime) / 60).rounded(.up))) min to go")
                                 .font(.title3).foregroundStyle(.white.opacity(0.6)).monospacedDigit()
                         }
@@ -51,6 +67,7 @@ struct FocusView: View {
                             Button("End Session") { c.requestEnd() }
                         }
                         .buttonStyle(.bordered)
+                        .tint(.white)
                         .buttonBorderShape(.capsule)
                         .controlSize(.large)
                     } else {
@@ -77,7 +94,6 @@ struct FocusView: View {
             }
         }
         .environment(\.colorScheme, .dark)
-        .tint(Theme.accent)
         .onExitCommand { dismissWindow(id: "focus") }
         .onAppear {
             // Go full screen once the window exists.
@@ -88,6 +104,16 @@ struct FocusView: View {
                 }
             }
         }
+    }
+
+    /// Session time, or in Pomodoro mode a countdown of the current round or break.
+    private func bigClock(at date: Date) -> String {
+        guard settings.pomodoro else { return formatHMS(c.focusedTime) }
+        let left: TimeInterval
+        if case .onBreak(let until) = c.phase { left = until.timeIntervalSince(date) }
+        else { left = settings.pomodoroMinutes * 60 - c.pomodoroFocus }
+        let s = Int(max(0, left).rounded(.up))
+        return String(format: "%02d:%02d", s / 60, s % 60)
     }
 
     private var statusText: String {

@@ -72,7 +72,7 @@ struct OnlineDetails: View {
         let sync = c.groupSync
         DisclosureGroup("What goes online when this is on") {
             VStack(alignment: .leading, spacing: 6) {
-                Bullet("Sent, encrypted on this Mac first: your nickname and the totals you choose to share (today, studying now, week and streak, subjects).")
+                Bullet("Sent, encrypted on this Mac first: your nickname, the totals you choose to share (today, studying now, week and streak, subjects) and, if you choose, a small copy of your profile photo.")
                 Bullet("Sent to: \(sync.databaseDescription), and nowhere else. It's stored scrambled under random IDs, so whoever runs the database\(sync.usingOwnDatabase ? "" : ", including Clocked's makers,") can't read it.")
                 Bullet("Never sent: camera, microphone, posture, phone detection, the learning model, page titles, apps or anything else.")
                 Bullet("Who can read it: only people with your group's invite code. The database itself only sees when you sync and your IP address, like any website.")
@@ -265,9 +265,9 @@ struct PrivacySettings: View {
 
             Section {
                 PrivacyRow(icon: "internaldrive", title: "Stored on this Mac only",
-                           detail: "Settings and subjects, study time per day (400 days), up to \(HistoryStore.limit) session summaries, recorded postures as summary numbers, and up to 1,500 learning examples (numbers only). Under 1 MB in total.")
+                           detail: "Settings and subjects, study time per day (400 days), up to \(HistoryStore.limit) session summaries, recorded postures as summary numbers, up to 1,500 learning examples (numbers only), and your profile photo if you add one (256 × 256). Under 1 MB in total.")
                 PrivacyRow(icon: "eye.slash", title: "Never stored anywhere",
-                           detail: "Images, audio, page titles, keystrokes, logs.")
+                           detail: "Camera images, audio, page titles, keystrokes, logs.")
                 HStack {
                     Spacer()
                     Button("Delete All My Data…", role: .destructive) { confirmDelete = true }

@@ -19,15 +19,42 @@ struct GeneralSettings: View {
                     ForEach([60.0, 120, 180, 240, 300, 360, 480], id: \.self) { Text(formatHours($0 * 60)).tag($0) }
                 }
             }
-            Section("Breaks") {
-                Picker("Break length", selection: $settings.breakMinutes) {
-                    ForEach([5.0, 10, 15, 20, 30], id: \.self) { Text("\(Int($0)) minutes").tag($0) }
+            Section {
+                Picker("Timer", selection: $settings.pomodoro) {
+                    Text("Standard").tag(false)
+                    Text("Pomodoro").tag(true)
                 }
-                Picker("Suggest a break after", selection: $settings.breakReminderMinutes) {
-                    Text("Never").tag(0.0)
-                    ForEach([25.0, 45, 50, 60, 90], id: \.self) { Text("\(Int($0)) minutes of focus").tag($0) }
+                .pickerStyle(.segmented)
+                if settings.pomodoro {
+                    Picker("Focus", selection: $settings.pomodoroMinutes) {
+                        ForEach([15.0, 20, 25, 30, 45, 50, 60], id: \.self) { Text("\(Int($0)) minutes").tag($0) }
+                    }
+                    Picker("Short break", selection: $settings.shortBreakMinutes) {
+                        ForEach([3.0, 5, 10, 15], id: \.self) { Text("\(Int($0)) minutes").tag($0) }
+                    }
+                    Picker("Long break", selection: $settings.longBreakMinutes) {
+                        ForEach([10.0, 15, 20, 25, 30], id: \.self) { Text("\(Int($0)) minutes").tag($0) }
+                    }
+                    Picker("Long break after", selection: $settings.roundsPerSet) {
+                        ForEach([2, 3, 4, 5, 6], id: \.self) { Text("\($0) rounds").tag($0) }
+                    }
+                } else {
+                    Picker("Break length", selection: $settings.breakMinutes) {
+                        ForEach([5.0, 10, 15, 20, 30], id: \.self) { Text("\(Int($0)) minutes").tag($0) }
+                    }
+                    Picker("Suggest a break after", selection: $settings.breakReminderMinutes) {
+                        Text("Never").tag(0.0)
+                        ForEach([25.0, 45, 50, 60, 90], id: \.self) { Text("\(Int($0)) minutes of focus").tag($0) }
+                    }
+                }
+            } header: {
+                Text("Timer")
+            } footer: {
+                if settings.pomodoro {
+                    Text("Breaks start on their own. Only focused time counts towards a round, so distractions push the break back.")
                 }
             }
+            .disabled(c.phase == .running || c.phase.isBreak)
             Section("Activity Classification") {
                 LabeledContent("Engine", value: c.judge.aiAvailable ? "Apple Intelligence (on-device)" : "Built-in rules")
                 if !c.judge.aiAvailable {
@@ -48,6 +75,66 @@ struct GeneralSettings: View {
             }
         }
         .formStyle(.grouped)
+    }
+}
+
+struct AppearanceSettings: View {
+    @ObservedObject var settings = AppSettings.shared
+
+    var body: some View {
+        Form {
+            Section("Theme") {
+                Picker("Appearance", selection: $settings.appearance) {
+                    ForEach(AppearanceMode.allCases) { Text($0.title).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                LabeledContent("Accent colour") {
+                    HStack(spacing: 10) {
+                        ForEach(AccentChoice.allCases) { choice in
+                            AccentSwatch(choice: choice, selected: settings.accent == choice) { settings.accent = choice }
+                        }
+                    }
+                }
+            }
+            Section("Timer") {
+                Picker("Font", selection: $settings.timerFont) {
+                    ForEach(TimerFont.allCases) { Text($0.title).tag($0) }
+                }
+                LabeledContent("Preview") {
+                    Text("04:12:00")
+                        .font(.system(size: 28, weight: .medium, design: settings.timerFont.design).monospacedDigit())
+                }
+            }
+            Section("Focus View") {
+                Picker("Background", selection: $settings.focusBackground) {
+                    ForEach(FocusBackground.allCases) { Text($0.title).tag($0) }
+                }
+            }
+            Section("Menu Bar") {
+                Toggle("Show today's time during a session", isOn: $settings.menuBarTime)
+            }
+        }
+        .formStyle(.grouped)
+    }
+}
+
+private struct AccentSwatch: View {
+    let choice: AccentChoice
+    let selected: Bool
+    let action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            Circle().fill(choice.color)
+                .frame(width: 18, height: 18)
+                .overlay(Circle().strokeBorder(.black.opacity(0.12)))
+                .overlay { if selected { Circle().fill(.white).frame(width: 6, height: 6) } }
+                .padding(2)
+                .overlay(Circle().strokeBorder(selected ? choice.color : .clear, lineWidth: 1.5))
+        }
+        .buttonStyle(.plain)
+        .help(choice.title)
+        .accessibilityLabel(choice.title)
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }
 

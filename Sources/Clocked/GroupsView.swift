@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// Study groups: who's studying right now, and a leaderboard per group.
 struct GroupsPane: View {
@@ -80,14 +81,16 @@ struct GroupsPane: View {
 
 // MARK: - You
 
-/// Your nickname and what you share, in one line above the groups.
+/// Your photo, nickname and what you share, in one line above the groups.
 private struct YouBar: View {
     @EnvironmentObject var c: SessionController
     private var sync: GroupSync { c.groupSync }
+    @State private var choosingPhoto = false
+    @State private var dropTargeted = false
 
     var body: some View {
         HStack(spacing: Theme.Space.m) {
-            MemberAvatar(name: sync.nickname.isEmpty ? "?" : sync.nickname, size: 40, live: c.phase == .running)
+            photoButton
             VStack(alignment: .leading, spacing: 2) {
                 TextField("", text: Binding(get: { sync.nickname }, set: { sync.nickname = $0 }), prompt: Text("Your nickname"))
                     .textFieldStyle(.plain)
@@ -101,6 +104,7 @@ private struct YouBar: View {
                 Toggle("Studying now", isOn: Binding(get: { sync.shareLive }, set: { sync.shareLive = $0 }))
                 Toggle("Week and streak", isOn: Binding(get: { sync.shareWeek }, set: { sync.shareWeek = $0 }))
                 Toggle("Subjects", isOn: Binding(get: { sync.shareSubjects }, set: { sync.shareSubjects = $0 }))
+                Toggle("Profile photo", isOn: Binding(get: { sync.sharePhoto }, set: { sync.sharePhoto = $0 }))
                 Divider()
                 Button("Privacy Settings…") { c.selectedPane = .privacy }
             } label: {
@@ -111,8 +115,61 @@ private struct YouBar: View {
         }
     }
 
+    /// Click to choose a photo (or change or remove it), or drop an image on it.
+    @ViewBuilder private var photoButton: some View {
+        let avatar = MemberAvatar(name: sync.nickname.isEmpty ? "?" : sync.nickname, size: 40, live: c.phase == .running,
+                                  photo: AvatarPhotos.image("me", sync.photo) { NSImage(data: $0) })
+            .overlay(Circle().strokeBorder(dropTargeted ? Theme.accent : .clear, lineWidth: 2))
+        Group {
+            if sync.photo == nil {
+                Button { choosingPhoto = true } label: { avatar }
+            } else {
+                Menu {
+                    Button("Choose Photo…") { choosingPhoto = true }
+                    Button("Remove Photo") { sync.removePhoto() }
+                } label: { avatar }
+                .menuStyle(.button).menuIndicator(.hidden).fixedSize()
+            }
+        }
+        .buttonStyle(.plain)
+        .help(sync.photo == nil ? "Choose a photo, or drop one here" : "Change or remove your photo")
+        .fileImporter(isPresented: $choosingPhoto, allowedContentTypes: [.image]) { result in
+            guard case .success(let url) = result else { return }
+            Self.usePhoto(sync) { () -> Data? in
+                let access = url.startAccessingSecurityScopedResource()
+                defer { if access { url.stopAccessingSecurityScopedResource() } }
+                return ProfilePhoto.square(url, size: ProfilePhoto.localSize, quality: 0.85)
+            }
+        }
+        .onDrop(of: [.image, .fileURL], isTargeted: $dropTargeted) { providers in
+            guard let provider = providers.first else { return false }
+            let sync = sync
+            if provider.hasItemConformingToTypeIdentifier(UTType.image.identifier) {
+                provider.loadDataRepresentation(forTypeIdentifier: UTType.image.identifier) { data, _ in
+                    guard let data else { return }
+                    Self.usePhoto(sync) { ProfilePhoto.square(data, size: ProfilePhoto.localSize, quality: 0.85) }
+                }
+            } else {
+                _ = provider.loadObject(ofClass: URL.self) { url, _ in
+                    guard let url, url.isFileURL else { return }
+                    Self.usePhoto(sync) { ProfilePhoto.square(url, size: ProfilePhoto.localSize, quality: 0.85) }
+                }
+            }
+            return true
+        }
+    }
+
+    /// Crops and shrinks off the main thread (a camera photo can be large), then saves it.
+    nonisolated private static func usePhoto(_ sync: GroupSync, _ make: @escaping @Sendable () -> Data?) {
+        Task.detached(priority: .userInitiated) {
+            guard let jpeg = make() else { return }
+            await MainActor.run { sync.setPhoto(jpeg) }
+        }
+    }
+
     private var sharingSummary: String {
-        let parts = [(sync.shareToday, "today"), (sync.shareLive, "live status"), (sync.shareWeek, "week & streak"), (sync.shareSubjects, "subjects")]
+        let parts = [(sync.shareToday, "today"), (sync.shareLive, "live status"), (sync.shareWeek, "week & streak"), (sync.shareSubjects, "subjects"),
+                     (sync.sharePhoto && sync.photo != nil, "photo")]
             .filter(\.0).map(\.1)
         let shared = parts.isEmpty ? "Sharing nothing" : "Sharing " + (ListFormatter.localizedString(byJoining: parts))
         let synced = sync.lastSync.map { " · synced \($0.formatted(.relative(presentation: .named)))" } ?? ""
@@ -238,7 +295,7 @@ private struct GroupDetail: View {
         let hidden = !m.isMe && m.payload.todaySeconds == nil
         let shape = RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
         return VStack(spacing: 6) {
-            MemberAvatar(name: m.payload.name, size: 52, live: live, color: color)
+            MemberAvatar(name: m.payload.name, size: 52, live: live, color: color, photo: AvatarPhotos.image(for: m))
                 .saturation(live ? 1 : 0.25).opacity(live ? 1 : 0.6)
             Text(m.isMe ? "You" : m.payload.name).font(.callout.weight(.semibold)).lineLimit(1)
             Text(hidden ? "—" : formatHMS(todayNow(m, now)))
@@ -312,7 +369,7 @@ private struct GroupDetail: View {
         return VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: Theme.Space.m) {
                 RankBadge(rank: rank)
-                MemberAvatar(name: p.name, size: 36, live: isLive(m), color: color)
+                MemberAvatar(name: p.name, size: 36, live: isLive(m), color: color, photo: AvatarPhotos.image(for: m))
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 6) {
                         Text(p.name).font(.body.weight(.medium)).lineLimit(1)
@@ -393,19 +450,46 @@ private struct RankBadge: View {
     }
 }
 
-/// A member's initial on a colour that stays the same for their name, with a green ring while they study.
+/// A member's photo, or their initial on a colour that stays the same for their name, with a green ring while they study.
 struct MemberAvatar: View {
     let name: String
     var size: CGFloat = 32
     var live = false
     var color: Color?
+    var photo: NSImage?
     var body: some View {
         let gap = max(3, size * 0.08)
-        Circle().fill((color ?? avatarColor(name)).gradient)
-            .frame(width: size, height: size)
-            .overlay(Text(String(name.prefix(1)).uppercased()).font(.system(size: size * 0.42, weight: .semibold)).foregroundStyle(.white))
-            .padding(gap)
-            .overlay(Circle().strokeBorder(live ? Color.green : .clear, lineWidth: max(2, size * 0.06)))
+        Group {
+            if let photo {
+                Image(nsImage: photo).resizable().interpolation(.high).scaledToFill()
+            } else {
+                Circle().fill((color ?? avatarColor(name)).gradient)
+                    .overlay(Text(String(name.prefix(1)).uppercased()).font(.system(size: size * 0.42, weight: .semibold)).foregroundStyle(.white))
+            }
+        }
+        .frame(width: size, height: size)
+        .clipShape(Circle())
+        .padding(gap)
+        .overlay(Circle().strokeBorder(live ? Color.green : .clear, lineWidth: max(2, size * 0.06)))
+    }
+}
+
+/// Decoded photos, so each is decoded once rather than on every redraw (member tiles redraw every second).
+/// Keyed by member; a new photo from the same member replaces the old one.
+@MainActor
+enum AvatarPhotos {
+    private static var cache: [String: (source: AnyHashable, image: NSImage?)] = [:]
+
+    static func image(for member: GroupMember) -> NSImage? {
+        image(member.id, member.payload.photo) { Data(base64Encoded: $0).flatMap(NSImage.init(data:)) }
+    }
+
+    static func image<Source: Hashable>(_ key: String, _ source: Source?, decode: (Source) -> NSImage?) -> NSImage? {
+        guard let source else { return nil }
+        if let hit = cache[key], hit.source == AnyHashable(source) { return hit.image }
+        let image = decode(source)
+        cache[key] = (source, image)
+        return image
     }
 }
 

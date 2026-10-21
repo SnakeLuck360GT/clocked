@@ -1,4 +1,5 @@
 import AppKit
+import Observation
 import SwiftUI
 
 /// Design tokens, from the app icon. Colour roles:
@@ -6,8 +7,10 @@ import SwiftUI
 /// - Subject colours: a subject's identity only (ring segments, play buttons, bars, dots, a light row tint).
 /// - Status: green = focused, `warning` (amber) = distracted, grey = paused, blue = break, red = destructive.
 enum Theme {
-    static let accent = Color(hex: "#EF4F2C")
-    static let accentLight = Color(hex: "#FF9150")
+    /// The accent chosen in Settings → Appearance (Ember by default).
+    static var accent: Color { ThemeState.shared.accent.color }
+    /// Font design for the large timers.
+    static var timerDesign: Font.Design { ThemeState.shared.timerFont.design }
     static let warning = Color(hex: "#E39B2E")
     /// Deep backgrounds (Focus View, curtain).
     static let night = [Color(hex: "#2A1E1B"), Color(hex: "#101015")]
@@ -33,6 +36,32 @@ enum Theme {
             let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
             return NSColor(Color(hex: isDark ? dark : light))
         })
+    }
+}
+
+/// The accent and timer font, observable so any view that reads `Theme.accent` or `Theme.timerDesign`
+/// redraws when they change, without rebuilding the window. Kept in step by AppSettings.
+final class ThemeState: Observable {
+    static let shared = ThemeState()
+    private let registrar = ObservationRegistrar()
+    private var _accent = AccentChoice.ember
+    private var _timerFont = TimerFont.rounded
+
+    var accent: AccentChoice {
+        get { registrar.access(self, keyPath: \.accent); return _accent }
+        set { registrar.withMutation(of: self, keyPath: \.accent) { _accent = newValue } }
+    }
+    var timerFont: TimerFont {
+        get { registrar.access(self, keyPath: \.timerFont); return _timerFont }
+        set { registrar.withMutation(of: self, keyPath: \.timerFont) { _timerFont = newValue } }
+    }
+}
+
+/// Applies the accent as the window's tint.
+struct Themed<Content: View>: View {
+    @ViewBuilder var content: Content
+    var body: some View {
+        content.tint(Theme.accent)
     }
 }
 
