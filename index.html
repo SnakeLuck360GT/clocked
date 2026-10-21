@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Clocked</title>
+  <meta name="description" content="A study timer for the Mac that stops counting when you pick up your phone.">
+  <meta property="og:title" content="Clocked">
+  <meta property="og:description" content="A study timer for the Mac that stops counting when you pick up your phone.">
+  <meta property="og:image" content="img/icon.png">
+  <link rel="icon" href="img/favicon.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="#"><img src="img/icon.png" alt="" width="28" height="28">Clocked</a>
+    <a class="nav-dl" href="#install">Download</a>
+  </div>
+</nav>
+
+<header class="wrap hero">
+  <h1>Can't focus while you study?</h1>
+  <p class="lead">Clocked is a study timer for the Mac that stops counting the moment you pick up your phone, open Instagram or walk away.</p>
+  <div class="dl">
+    <a class="btn" href="downloads/Clocked-3.0.dmg" download>Download for Mac</a>
+    <p class="small">Version 3.0. Requires macOS 26 on Apple Silicon.</p>
+  </div>
+</header>
+
+<section class="demo-wrap" aria-label="Interactive demo of the Clocked window">
+  <div class="wrap">
+    <div class="stage" id="stage">
+      <div class="banner" id="banner" hidden>
+        <span class="banner-icon" id="bannerIcon"></span>
+        <span class="banner-text"><b id="bannerTitle"></b><span id="bannerMsg"></span></span>
+        <span class="banner-actions" id="bannerActions"></span>
+        <button class="banner-x" id="bannerX" aria-label="Dismiss">
+          <svg viewBox="0 0 10 10" width="9" height="9"><path d="M1.5 1.5l7 7M8.5 1.5l-7 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div class="scaler" id="scaler">
+        <div class="win" id="win">
+          <div class="pane-img" id="paneImg"></div>
+          <div class="side-hit" id="sideHit"></div>
+          <div class="today" id="today"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<main class="wrap">
+  <section class="points">
+    <div>
+      <h3>Your phone</h3>
+      <p>It notices your head drop and your hands stop typing, even with the phone hidden in your lap.</p>
+    </div>
+    <div>
+      <h3>Apps and tabs</h3>
+      <p>Anything that isn't your subject pauses the clock.</p>
+    </div>
+    <div>
+      <h3>Leaving your desk</h3>
+      <p>Five seconds out of view and you're marked away.</p>
+    </div>
+  </section>
+
+  <section id="try">
+    <h2>Try it with your camera</h2>
+    <p class="narrow">Look at the screen, then look down at your phone.<br>Nothing leaves your browser.</p>
+    <div class="try-grid">
+      <div class="cam" id="cam">
+        <video id="camVideo" playsinline muted></video>
+        <canvas id="camCanvas"></canvas>
+        <div class="cam-start" id="camStart">
+          <button class="btn" id="camBtn">Turn on camera</button>
+          <p class="small" id="camMsg"></p>
+        </div>
+      </div>
+      <div class="readout" id="readout" data-state="study">
+        <div class="ro-top">
+          <span id="roState">Studying</span>
+          <b id="roClock">0:00:00</b>
+        </div>
+        <div class="meter" aria-hidden="true"><div class="meter-fill" id="meterFill"></div><i class="half"></i></div>
+        <div class="meter-labels"><span>Evidence</span><span>holds time back</span><span>phone</span></div>
+        <ul class="cuelist" id="cues">
+          <li data-cue="head"><b>+</b>Head lower than your screen posture</li>
+          <li data-cue="eyes"><b>+</b>Eyes looking down</li>
+          <li data-cue="still"><b>+</b>No typing or mouse</li>
+          <li data-cue="smile"><b>+</b>Smiling</li>
+          <li data-cue="phone"><b>+++</b>Phone in view</li>
+          <li data-cue="typing" class="neg"><b>&minus;</b>Typing</li>
+          <li data-cue="screen" class="neg"><b>&minus;</b>Looking at the screen</li>
+        </ul>
+        <button class="linkbtn" id="camStop">Turn off camera</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="privacy">
+    <h2>Private by design</h2>
+    <div class="privacy">
+      <div>
+        <p class="claim">Clocked has no internet access.</p>
+        <p>The app that uses your camera and microphone isn't allowed to connect to anything. macOS's sandbox blocks it, because the network permission was never given to the app. That's how it's built, not a setting you could switch on by mistake.</p>
+        <p>Check it yourself in Terminal:</p>
+        <pre class="cmd"><code>codesign -d --entitlements - /Applications/Clocked.app</code></pre>
+        <p class="small">You'll see the camera, the microphone and the sandbox, and no <code>network.client</code>.</p>
+      </div>
+      <ul class="facts">
+        <li><b>Only during a session.</b> The camera and mic switch on when you press play and off when you stop.</li>
+        <li><b>Nothing is recorded.</b> Each frame and sound is analysed in memory and thrown away.</li>
+        <li><b>Almost nothing is saved.</b> Settings, daily totals and a few numbers about your posture. No images, audio, keystrokes or page titles.</li>
+        <li><b>Study groups are separate.</b> They're off until you turn them on, and they run in a small helper inside the app, ClockedSync, that can reach the internet but can't use the camera or mic. It only gets your totals after they're encrypted on your Mac, and the invite code is the key, so the server can't read them.
+          <pre class="cmd"><code>codesign -d --entitlements - /Applications/Clocked.app/Contents/XPCServices/ClockedSync.xpc</code></pre>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="install">
+    <h2>Install</h2>
+    <ol class="narrow">
+      <li>Drag Clocked into Applications.</li>
+      <li>The first time, open System Settings &rarr; Privacy &amp; Security and click Open Anyway.</li>
+    </ol>
+    <div class="dl">
+      <a class="btn" href="downloads/Clocked-3.0.dmg" download>Download Clocked 3.0</a>
+    </div>
+  </section>
+</main>
+
+<footer class="wrap footer">
+  <span>Clocked by David Xie</span>
+  <a href="https://github.com/SnakeLuck360GT/clocked">GitHub</a>
+</footer>
+
+<script src="main.js"></script>
+<script type="module" src="camera.js"></script>
+</body>
+</html>
