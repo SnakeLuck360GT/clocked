@@ -16,19 +16,19 @@ The app isn't notarized yet, so the first time you open it go to System Settings
 
 ## How it works
 
-- It watches for what phone use looks like: head down, no typing, sound that isn't coming from your Mac. Scrolling with the sound off gets caught in about 12 seconds.
-- It checks the app and browser tab you're on and asks Apple Intelligence (on your Mac) if it fits your subject.
-- More than 5 seconds out of the camera's view counts as away.
-- When you're caught, the clock pauses and a banner pops up. On stricter settings it goes full screen, texts your iPhone, or closes the tab.
-- If it's wrong, the banner buttons correct it, and a small [neural network](docs/neural-network.md) learns from that.
+- The camera and mic look for phone use: head down, no typing, sound not from your Mac.
+- The app and browser tab you're on are checked against your subject.
+- More than 5 seconds out of view counts as away.
+- When you're distracted, the clock pauses and a banner appears.
+- The banner buttons correct mistakes, and a small [neural network](docs/neural-network.md) learns from them.
 
 <img src="docs/nudge.png" width="470" alt="Phone use banner">
 
 ## Privacy
 
 - The camera and mic only run during a session. Nothing is recorded.
-- The app has no internet access at all. macOS blocks it, and you can check with `codesign -d --entitlements - /Applications/Clocked.app`.
-- Optional study groups run in a separate helper and everything they send is end-to-end encrypted.
+- The app has no internet access. Check with `codesign -d --entitlements - /Applications/Clocked.app`.
+- Study groups are optional and end-to-end encrypted.
 
 <p>
   <img src="docs/stats.png" width="62%" alt="Stats">
