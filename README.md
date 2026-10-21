@@ -20,9 +20,7 @@ I don't have an Apple Developer account yet, so the app isn't notarized and macO
 
 ## How it catches you
 
-Your phone is the hard part, because it's usually in your lap where the camera can't see it. So Clocked mostly doesn't look for the phone. It looks at you.
-
-Every second it adds up small hints: your head is lower than your usual screen posture, you haven't typed or touched the mouse in a while, there's talking or music that isn't coming from your Mac, the audio has that choppy short-video rhythm, you're smiling at something. One hint on its own never does anything. A few together do. Scrolling with the sound off gets caught in about 12 seconds, and with sound in about 6.
+Your phone is the hard part, because it's usually in your lap where the camera can't see it, so Clocked mostly watches you instead. Every second it adds up small hints: your head is lower than your usual screen posture, you haven't typed or touched the mouse in a while, there's talking or music that isn't coming from your Mac, the audio has that choppy short-video rhythm, you're smiling at something. One hint on its own never does anything. A few together do. Scrolling with the sound off gets caught in about 12 seconds, and with sound in about 6.
 
 It also checks which app and browser tab you're on every few seconds, and asks Apple Intelligence (on your Mac, not online) whether it fits what you said you're studying. If you're out of the camera's view for more than 5 seconds, you're marked away.
 
