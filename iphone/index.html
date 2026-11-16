@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Clocked iPhone link</title>
+  <meta name="description" content="Let your iPhone tell Clocked when you open a distracting app.">
+  <link rel="icon" href="../img/favicon.png">
+  <link rel="stylesheet" href="../style.css">
+  <style>
+    main.wrap.page { margin-top: 0; }
+    .page { padding-top: clamp(32px, 6vw, 64px); padding-bottom: clamp(48px, 7vw, 80px); max-width: 680px; }
+    .page h1 { font-size: clamp(34px, 5vw, 48px); font-weight: 700; letter-spacing: -0.03em; margin-bottom: 12px; }
+    .page .lead { margin: 0 0 32px; }
+    .page ol { padding-left: 1.3em; margin: 0 0 24px; }
+    .page li { margin-bottom: 18px; color: var(--text-2); }
+    .page li b { color: var(--text); }
+    .dls { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+    .page .note { font-size: 15px; color: var(--text-2); border-top: 1px solid var(--line); padding-top: 20px; }
+  </style>
+</head>
+<body>
+<nav class="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="../"><img src="../img/icon.png" alt="" width="28" height="28">Clocked</a>
+    <a class="nav-dl" href="../#install">Download</a>
+  </div>
+</nav>
+
+<main class="wrap page">
+  <h1>iPhone link</h1>
+  <p class="lead">Your iPhone tells Clocked the moment you open a distracting app, so the clock stops straight away. It works over your Wi-Fi, and nothing goes over the internet.</p>
+
+  <ol>
+    <li><b>On your Mac,</b> open Clocked and turn on Settings → Accountability → iPhone. Keep it open: it shows two links you'll paste in the next step.</li>
+    <li><b>On your iPhone,</b> open this page in Safari and add both shortcuts. Each one asks for a link: paste the matching one from Clocked. Copying on your Mac and pasting on your iPhone works if Handoff is on; otherwise AirDrop them.
+      <div class="dls">
+        <a class="btn" href="Clocked%20App%20Opened.shortcut">Clocked App Opened</a>
+        <a class="btn" href="Clocked%20App%20Closed.shortcut">Clocked App Closed</a>
+      </div>
+    </li>
+    <li><b>In Shortcuts,</b> go to Automation, tap +, and choose App. Pick the apps that distract you, tick Is Opened, choose Run Immediately and turn off Notify When Run. For the action, choose Run Shortcut → Clocked App Opened.</li>
+    <li><b>Make a second automation</b> the same way with Is Closed and Clocked App Closed.</li>
+  </ol>
+
+  <p class="note">Your iPhone and Mac need to be on the same Wi-Fi. Messages only count while a session is running. Clocked only accepts messages with your pairing key, and New Pairing Key in Settings makes the old links stop working.</p>
+</main>
+
+<footer class="wrap footer">
+  <span>Clocked by David Xie</span>
+  <a href="https://github.com/SnakeLuck360GT/clocked">GitHub</a>
+</footer>
+</body>
+</html>
