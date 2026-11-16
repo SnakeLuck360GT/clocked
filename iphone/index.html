@@ -16,6 +16,12 @@
     .page li { margin-bottom: 18px; color: var(--text-2); }
     .page li b { color: var(--text); }
     .dls { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+    .yours { display: none; margin: 14px 0 4px; border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+    .yours.on { display: block; }
+    .yours p { margin: 0 0 10px; font-size: 15px; color: var(--text); }
+    .yours .lk { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+    .yours .lk span { flex: 1; color: var(--text-2); font-size: 15px; }
+    .yours button { border: 1px solid var(--line); background: transparent; color: var(--text); border-radius: 7px; padding: 6px 12px; font: inherit; font-size: 15px; cursor: pointer; }
     .page .note { font-size: 15px; color: var(--text-2); border-top: 1px solid var(--line); padding-top: 20px; }
   </style>
 </head>
@@ -32,8 +38,13 @@
   <p class="lead">Your iPhone tells Clocked the moment you open a distracting app, so the clock stops straight away. It works over your Wi-Fi, and nothing goes over the internet.</p>
 
   <ol>
-    <li><b>On your Mac,</b> open Clocked and turn on Settings → Accountability → iPhone. Keep it open: it shows two links you'll paste in the next step.</li>
-    <li><b>On your iPhone,</b> open this page in Safari and add both shortcuts. Each one asks for a link: paste the matching one from Clocked. Copying on your Mac and pasting on your iPhone works if Handoff is on; otherwise AirDrop them.
+    <li><b>On your Mac,</b> open Clocked, go to Settings → Accountability → iPhone and click Set Up. It shows a code to scan with your iPhone, which opens this page with your own links.</li>
+    <li><b>On your iPhone,</b> open this page in Safari (scan the code in Clocked's setup) and add both shortcuts. Each one asks for a link: paste the matching one.
+      <div class="yours" id="yours">
+        <p>Your links</p>
+        <div class="lk"><span>For “Clocked App Opened”</span><button data-copy="openedLink">Copy</button></div>
+        <div class="lk"><span>For “Clocked App Closed”</span><button data-copy="closedLink">Copy</button></div>
+      </div>
       <div class="dls">
         <a class="btn" href="Clocked%20App%20Opened.shortcut">Clocked App Opened</a>
         <a class="btn" href="Clocked%20App%20Closed.shortcut">Clocked App Closed</a>
@@ -50,5 +61,23 @@
   <span>Clocked by David Xie</span>
   <a href="https://github.com/SnakeLuck360GT/clocked">GitHub</a>
 </footer>
+<script>
+  // The links come from the part of the address after "#", which browsers never send to the server.
+  const links = {};
+  const p = new URLSearchParams(location.hash.slice(1));
+  const host = p.get("host"), port = p.get("port"), key = p.get("key");
+  if (host && port && key && /^[\w.-]+$/.test(host) && /^\d+$/.test(port) && /^\w+$/.test(key)) {
+    const base = `http://${host}:${port}`;
+    links.openedLink = `${base}/opened?key=${key}`;
+    links.closedLink = `${base}/closed?key=${key}`;
+    document.getElementById("yours").classList.add("on");
+  }
+  for (const b of document.querySelectorAll("[data-copy]")) {
+    b.addEventListener("click", async () => {
+      await navigator.clipboard.writeText(links[b.dataset.copy]);
+      b.textContent = "Copied";
+    });
+  }
+</script>
 </body>
 </html>
