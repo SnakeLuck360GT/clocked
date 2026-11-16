@@ -8,21 +8,25 @@
   <link rel="icon" href="../img/favicon.png">
   <link rel="stylesheet" href="../style.css">
   <style>
-    main.wrap.page { margin-top: 0; }
-    .page { padding-top: clamp(32px, 6vw, 64px); padding-bottom: clamp(48px, 7vw, 80px); max-width: 680px; }
-    .page h1 { font-size: clamp(34px, 5vw, 48px); font-weight: 700; letter-spacing: -0.03em; margin-bottom: 12px; }
-    .page .lead { margin: 0 0 32px; }
-    .page ol { padding-left: 1.3em; margin: 0 0 24px; }
-    .page li { margin-bottom: 18px; color: var(--text-2); }
-    .page li b { color: var(--text); }
-    .dls { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
-    .yours { display: none; margin: 14px 0 4px; border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
-    .yours.on { display: block; }
-    .yours p { margin: 0 0 10px; font-size: 15px; color: var(--text); }
-    .yours .lk { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
-    .yours .lk span { flex: 1; color: var(--text-2); font-size: 15px; }
-    .yours button { border: 1px solid var(--line); background: transparent; color: var(--text); border-radius: 7px; padding: 6px 12px; font: inherit; font-size: 15px; cursor: pointer; }
-    .page .note { font-size: 15px; color: var(--text-2); border-top: 1px solid var(--line); padding-top: 20px; }
+    main.wrap.wiz { margin-top: 0; max-width: 560px; padding-top: clamp(24px, 5vw, 48px); padding-bottom: 48px; }
+    .bar { display: flex; gap: 6px; margin-bottom: 28px; }
+    .bar i { flex: 1; height: 4px; border-radius: 2px; background: var(--line); }
+    .bar i.done { background: var(--ember); }
+    .step { display: none; }
+    .step.on { display: block; }
+    .step h1 { font-size: clamp(28px, 7vw, 38px); font-weight: 700; letter-spacing: -0.025em; line-height: 1.12; margin-bottom: 12px; }
+    .step p { color: var(--text-2); }
+    .step ol { padding-left: 1.3em; margin: 0 0 20px; color: var(--text-2); }
+    .step li { margin-bottom: 10px; }
+    .step li b, .step p b { color: var(--text); font-weight: 600; }
+    .big { display: block; width: 100%; text-align: center; border: 0; font: inherit; font-weight: 600; font-size: 18px; padding: 15px; border-radius: 10px; cursor: pointer; margin-top: 8px; }
+    .big.primary { background: var(--ember); color: #fff; text-decoration: none; }
+    .big.secondary { background: transparent; color: var(--text); border: 1px solid var(--line); text-decoration: none; }
+    .nav2 { display: flex; justify-content: space-between; align-items: center; margin-top: 28px; }
+    .nav2 button { border: 0; background: none; font: inherit; font-size: 17px; color: var(--text-2); cursor: pointer; padding: 8px 0; }
+    .nav2 .next { color: var(--ember); font-weight: 600; }
+    .done-msg { color: var(--text-2); font-size: 15px; min-height: 1.5em; margin-top: 10px; }
+    .small { font-size: 15px; }
   </style>
 </head>
 <body>
@@ -33,51 +37,131 @@
   </div>
 </nav>
 
-<main class="wrap page">
-  <h1>iPhone link</h1>
-  <p class="lead">Your iPhone tells Clocked the moment you open a distracting app, so the clock stops straight away. It works over your Wi-Fi, and nothing goes over the internet.</p>
+<main class="wrap wiz">
+  <div class="bar" id="bar"></div>
 
-  <ol>
-    <li><b>On your Mac,</b> open Clocked, go to Settings → Accountability → iPhone and click Set Up. It shows a code to scan with your iPhone, which opens this page with your own links.</li>
-    <li><b>On your iPhone,</b> open this page in Safari (scan the code in Clocked's setup) and add both shortcuts. Each one asks for a link: paste the matching one.
-      <div class="yours" id="yours">
-        <p>Your links</p>
-        <div class="lk"><span>For “Clocked App Opened”</span><button data-copy="openedLink">Copy</button></div>
-        <div class="lk"><span>For “Clocked App Closed”</span><button data-copy="closedLink">Copy</button></div>
-      </div>
-      <div class="dls">
-        <a class="btn" href="Clocked%20App%20Opened.shortcut">Clocked App Opened</a>
-        <a class="btn" href="Clocked%20App%20Closed.shortcut">Clocked App Closed</a>
-      </div>
-    </li>
-    <li><b>In Shortcuts,</b> go to Automation, tap +, and choose App. Pick the apps that distract you, tick Is Opened, choose Run Immediately and turn off Notify When Run. For the action, choose Run Shortcut → Clocked App Opened.</li>
-    <li><b>Make a second automation</b> the same way with Is Closed and Clocked App Closed.</li>
-  </ol>
+  <section class="step" data-step="start">
+    <h1>Start on your Mac</h1>
+    <p>Your iPhone can tell Clocked the moment you open a distracting app, so the clock stops straight away. It works over your Wi-Fi, and nothing goes over the internet.</p>
+    <ol>
+      <li>Open Clocked on your Mac.</li>
+      <li>Go to <b>Settings → Accountability → iPhone</b> and click <b>Set Up</b>.</li>
+      <li>Scan the code it shows with your iPhone's camera. This page opens with your own links and you can carry on from there.</li>
+    </ol>
+    <p class="small">You need Clocked, and your iPhone and Mac on the same Wi-Fi.</p>
+  </section>
 
-  <p class="note">Your iPhone and Mac need to be on the same Wi-Fi. Messages only count while a session is running. Clocked only accepts messages with your pairing key, and New Pairing Key in Settings makes the old links stop working.</p>
+  <section class="step" data-step="opened">
+    <h1>Add “Clocked App Opened”</h1>
+    <p>Tap the button. It copies your link and opens the shortcut. When Shortcuts asks for a link, <b>paste</b> it, then tap <b>Add Shortcut</b>.</p>
+    <a class="big primary" href="Clocked%20App%20Opened.shortcut" data-copy="opened">Copy link and add shortcut</a>
+    <p class="done-msg" id="msg-opened"></p>
+  </section>
+
+  <section class="step" data-step="closed">
+    <h1>Add “Clocked App Closed”</h1>
+    <p>Same again. Tap, then <b>paste</b> and <b>Add Shortcut</b>.</p>
+    <a class="big primary" href="Clocked%20App%20Closed.shortcut" data-copy="closed">Copy link and add shortcut</a>
+    <p class="done-msg" id="msg-closed"></p>
+  </section>
+
+  <section class="step" data-step="auto-open">
+    <h1>When an app opens</h1>
+    <p>Now tell your iPhone when to run it.</p>
+    <ol>
+      <li>Open <b>Shortcuts</b> and go to the <b>Automation</b> tab.</li>
+      <li>Tap <b>+</b>, then <b>App</b>.</li>
+      <li>Choose the apps that distract you and tick <b>Is Opened</b>.</li>
+      <li>Choose <b>Run Immediately</b> and turn off <b>Notify When Run</b>.</li>
+      <li>Tap <b>Next</b>, then pick <b>Clocked App Opened</b>.</li>
+    </ol>
+    <a class="big secondary" href="shortcuts://">Open Shortcuts</a>
+  </section>
+
+  <section class="step" data-step="auto-close">
+    <h1>When it closes</h1>
+    <p>One more, the same way.</p>
+    <ol>
+      <li>In <b>Automation</b>, tap <b>+</b>, then <b>App</b>.</li>
+      <li>Choose the same apps and tick <b>Is Closed</b>.</li>
+      <li>Choose <b>Run Immediately</b> and turn off <b>Notify When Run</b>.</li>
+      <li>Tap <b>Next</b>, then pick <b>Clocked App Closed</b>.</li>
+    </ol>
+    <a class="big secondary" href="shortcuts://">Open Shortcuts</a>
+  </section>
+
+  <section class="step" data-step="focus">
+    <h1>Only while studying (optional)</h1>
+    <p>If you use a Study Focus during sessions, you can make the shortcuts send nothing the rest of the time. Do this for both shortcuts:</p>
+    <ol>
+      <li>Open the shortcut in <b>Shortcuts</b>.</li>
+      <li>Add <b>Get Current Focus</b> at the top.</li>
+      <li>Add <b>If</b> below it: <b>Current Focus</b> <b>is</b> Study.</li>
+      <li>Drag <b>URL</b> and <b>Get Contents of URL</b> inside the If.</li>
+    </ol>
+    <p class="small">Skip this if you don't use a Study Focus. Clocked ignores messages outside a session anyway.</p>
+  </section>
+
+  <section class="step" data-step="test">
+    <h1>Try it</h1>
+    <p>Open one of your apps on this iPhone. Clocked's setup on your Mac shows a tick when the message arrives.</p>
+    <p>That's it. During a session, opening those apps stops the clock straight away.</p>
+  </section>
+
+  <div class="nav2">
+    <button id="back">Back</button>
+    <button id="next" class="next">Next</button>
+  </div>
 </main>
 
-<footer class="wrap footer">
-  <span>Clocked by David Xie</span>
-  <a href="https://github.com/SnakeLuck360GT/clocked">GitHub</a>
-</footer>
 <script>
-  // The links come from the part of the address after "#", which browsers never send to the server.
-  const links = {};
+  // Your links come from the part of the address after "#" (from the code in Clocked's setup).
+  // Browsers never send that part to the server.
   const p = new URLSearchParams(location.hash.slice(1));
   const host = p.get("host"), port = p.get("port"), key = p.get("key");
-  if (host && port && key && /^[\w.-]+$/.test(host) && /^\d+$/.test(port) && /^\w+$/.test(key)) {
-    const base = `http://${host}:${port}`;
-    links.openedLink = `${base}/opened?key=${key}`;
-    links.closedLink = `${base}/closed?key=${key}`;
-    document.getElementById("yours").classList.add("on");
+  const valid = host && port && key && /^[\w.-]+$/.test(host) && /^\d+$/.test(port) && /^\w+$/.test(key);
+  const links = valid ? {
+    opened: `http://${host}:${port}/opened?key=${key}`,
+    closed: `http://${host}:${port}/closed?key=${key}`,
+  } : null;
+
+  const order = valid ? ["opened", "closed", "auto-open", "auto-close", "focus", "test"] : ["start"];
+  const steps = Object.fromEntries([...document.querySelectorAll(".step")].map((s) => [s.dataset.step, s]));
+  let i = 0;
+  const bar = document.getElementById("bar");
+  bar.innerHTML = order.length > 1 ? order.map(() => "<i></i>").join("") : "";
+
+  function show() {
+    for (const s of Object.values(steps)) s.classList.remove("on");
+    steps[order[i]].classList.add("on");
+    [...bar.children].forEach((b, n) => b.classList.toggle("done", n <= i));
+    document.getElementById("back").style.visibility = i > 0 ? "visible" : "hidden";
+    const next = document.getElementById("next");
+    next.style.visibility = order.length > 1 ? "visible" : "hidden";
+    next.textContent = i === order.length - 1 ? "Done" : "Next";
+    window.scrollTo(0, 0);
   }
-  for (const b of document.querySelectorAll("[data-copy]")) {
-    b.addEventListener("click", async () => {
-      await navigator.clipboard.writeText(links[b.dataset.copy]);
-      b.textContent = "Copied";
+  document.getElementById("back").addEventListener("click", () => { if (i > 0) { i--; show(); } });
+  document.getElementById("next").addEventListener("click", () => {
+    if (i < order.length - 1) { i++; show(); } else { location.href = "../"; }
+  });
+
+  // Copy the link, then open the shortcut, in one tap.
+  for (const a of document.querySelectorAll("[data-copy]")) {
+    a.addEventListener("click", async (e) => {
+      if (!links) return;
+      e.preventDefault();
+      const msg = document.getElementById(`msg-${a.dataset.copy}`);
+      try {
+        await navigator.clipboard.writeText(links[a.dataset.copy]);
+        msg.textContent = "Link copied. Paste it when Shortcuts asks, then come back here.";
+      } catch {
+        msg.textContent = links[a.dataset.copy];
+      }
+      location.href = a.getAttribute("href");
     });
   }
+  show();
 </script>
 </body>
 </html>
