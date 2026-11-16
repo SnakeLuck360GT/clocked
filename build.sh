@@ -35,6 +35,9 @@ swiftc -O -swift-version 5 -sdk "$SDKROOT" -target arm64-apple-macos26.0 \
 # The sync helper: the only part of Clocked with network access (outgoing HTTPS to Supabase, encrypted data only).
 swiftc -O -swift-version 5 -sdk "$SDKROOT" -target arm64-apple-macos26.0 \
   -module-name ClockedSync -o .build/release/ClockedSync Sources/ClockedSync/*.swift Sources/Shared/*.swift
+# The iPhone link helper: accepts "app opened / closed" messages from your iPhone on your local network only.
+swiftc -O -swift-version 5 -sdk "$SDKROOT" -target arm64-apple-macos26.0 \
+  -module-name ClockedLink -o .build/release/ClockedLink Sources/ClockedLink/*.swift Sources/Shared/*.swift
 
 APP="build/Clocked.app"
 rm -rf "$APP"
@@ -48,6 +51,11 @@ XPC="$APP/Contents/XPCServices/ClockedSync.xpc"
 mkdir -p "$XPC/Contents/MacOS"
 cp .build/release/ClockedSync "$XPC/Contents/MacOS/"
 cp Support/ClockedSync-Info.plist "$XPC/Contents/Info.plist"
+
+LINK="$APP/Contents/XPCServices/ClockedLink.xpc"
+mkdir -p "$LINK/Contents/MacOS"
+cp .build/release/ClockedLink "$LINK/Contents/MacOS/"
+cp Support/ClockedLink-Info.plist "$LINK/Contents/Info.plist"
 
 # Study-groups backend from supabase.env (git-ignored), if present. Read as plain KEY=value, never executed.
 if [ -f supabase.env ]; then
@@ -70,8 +78,9 @@ fi
 IDENTITY="${SIGN_IDENTITY:--}"
 SIGN_FLAGS=(--force --sign "$IDENTITY")
 [ "$IDENTITY" != "-" ] && SIGN_FLAGS+=(--options runtime --timestamp)
-echo "→ Signing ($([ "$IDENTITY" = "-" ] && echo "ad hoc" || echo "$IDENTITY"); sandboxed, only the sync helper may use the network)…"
+echo "→ Signing ($([ "$IDENTITY" = "-" ] && echo "ad hoc" || echo "$IDENTITY"); sandboxed, only the two helpers may use the network)…"
 codesign "${SIGN_FLAGS[@]}" --entitlements Support/ClockedSync.entitlements "$XPC"
+codesign "${SIGN_FLAGS[@]}" --entitlements Support/ClockedLink.entitlements "$LINK"
 codesign "${SIGN_FLAGS[@]}" --entitlements Support/Clocked.entitlements "$APP"
 
 echo "✓ Built $APP ($(du -sh "$APP" | cut -f1))"

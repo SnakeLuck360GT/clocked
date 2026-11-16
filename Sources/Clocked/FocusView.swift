@@ -108,7 +108,7 @@ struct FocusView: View {
 
     /// Session time, or in Pomodoro mode a countdown of the current round or break.
     private func bigClock(at date: Date) -> String {
-        guard settings.pomodoro else { return formatHMS(c.focusedTime) }
+        guard settings.pomodoro else { return formatTimer(c.timerValue(settings.timerShows == .today ? .session : settings.timerShows)) }
         let left: TimeInterval
         if case .onBreak(let until) = c.phase { left = until.timeIntervalSince(date) }
         else { left = settings.pomodoroMinutes * 60 - c.pomodoroFocus }

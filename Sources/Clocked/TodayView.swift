@@ -1,5 +1,24 @@
 import SwiftUI
 
+extension SessionController {
+    /// The time a big timer shows. Outside a session it's always today's total.
+    func timerValue(_ shows: TimerShows) -> TimeInterval {
+        guard phase == .running || phase.isBreak else { return todayTotal }
+        switch shows {
+        case .today: return todayTotal
+        case .session: return focusedTime
+        case .remaining: return studyGoal > 0 ? max(0, studyGoal - focusedTime) : focusedTime
+        }
+    }
+}
+
+/// 04:12:00, or 4h 12m with seconds turned off in Appearance.
+func formatTimer(_ t: TimeInterval) -> String {
+    if AppSettings.shared.showSeconds { return formatHMS(t) }
+    let m = Int(max(0, t)) / 60
+    return m < 60 ? "\(m)m" : "\(m / 60)h \(m % 60)m"
+}
+
 /// Today: the study ring, subjects with play buttons, and the session controls.
 struct TodayPane: View {
     @EnvironmentObject var c: SessionController
@@ -81,16 +100,41 @@ struct TodayHero: View {
         }
     }
 
+    /// Today's total, or (YPT-style) this session's time or the time left in it.
+    private var shows: TimerShows { isActive ? settings.timerShows : .today }
+    private var subjectColor: Color { c.currentSubject?.color ?? Theme.accent }
+
+    private var label: String {
+        switch shows {
+        case .today: return Date().formatted(.dateTime.weekday(.wide).month(.abbreviated).day())
+        case .session: return "This session"
+        case .remaining: return c.studyGoal > 0 ? "Left this session" : "This session"
+        }
+    }
+
+    /// The ring: today's subjects towards the daily goal, or this session (or Pomodoro round) towards its goal.
+    @ViewBuilder private func ring(_ lineWidth: CGFloat) -> some View {
+        if shows == .today {
+            SegmentedRing(segments: segments, lineWidth: lineWidth, dimmed: paused)
+        } else {
+            let done = settings.pomodoro ? c.pomodoroFocus / (settings.pomodoroMinutes * 60)
+                : c.studyGoal > 0 ? c.focusedTime / c.studyGoal : 0
+            // Counting down drains the ring; counting up fills it.
+            let progress = shows == .remaining ? 1 - min(done, 1) : done
+            ProgressRing(progress: progress, color: paused ? .gray : subjectColor, lineWidth: lineWidth)
+        }
+    }
+
     private var content: some View {
         let diameter: CGFloat = compact ? 150 : 240
         let percent = Int((c.todayTotal / dailyGoal * 100).rounded())
         return VStack(spacing: compact ? Theme.Space.s : Theme.Space.m) {
             ZStack {
-                SegmentedRing(segments: segments, lineWidth: compact ? 10 : 18, dimmed: paused)
+                ring(compact ? 10 : 18)
                 VStack(spacing: compact ? 2 : 4) {
-                    Text(Date().formatted(.dateTime.weekday(.wide).month(.abbreviated).day()))
+                    Text(label)
                         .font(compact ? .caption2 : .callout).foregroundStyle(.secondary)
-                    Text(formatHMS(c.todayTotal))
+                    Text(formatTimer(c.timerValue(shows)))
                         .font(.system(size: compact ? 28 : 46, weight: .medium, design: Theme.timerDesign).monospacedDigit())
                         .lineLimit(1)
                         .minimumScaleFactor(0.5)
@@ -112,6 +156,11 @@ struct TodayHero: View {
 
             if isActive, settings.pomodoro {
                 PomodoroProgress(width: diameter)
+            } else if isActive, shows != .today {
+                Text(c.studyGoal > 0 && !c.goalReached && shows == .session
+                     ? "Today \(formatTimer(c.todayTotal)) · \(Int(((c.studyGoal - c.focusedTime) / 60).rounded(.up))) min to go"
+                     : "Today \(formatTimer(c.todayTotal))")
+                    .font(.caption).foregroundStyle(.secondary).monospacedDigit()
             } else if isActive, c.studyGoal > 0 {
                 VStack(spacing: 4) {
                     ProgressBar(progress: c.focusedTime / c.studyGoal, color: c.currentSubject?.color ?? Theme.accent)

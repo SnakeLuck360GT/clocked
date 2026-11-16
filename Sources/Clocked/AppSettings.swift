@@ -41,14 +41,23 @@ final class AppSettings: ObservableObject {
     @Published var runShortcuts: Bool { didSet { defaults.set(runShortcuts, forKey: "runShortcuts") } }
     @Published var startShortcut: String { didSet { defaults.set(startShortcut, forKey: "startShortcut") } }
     @Published var endShortcut: String { didSet { defaults.set(endShortcut, forKey: "endShortcut") } }
+    /// Let your iPhone (a Shortcuts automation) tell Clocked when you open a distracting app. Off until you opt in.
+    @Published var phoneLink: Bool { didSet { defaults.set(phoneLink, forKey: "phoneLink") } }
+    /// Pairing key in the links your shortcuts call; messages without it are refused.
+    @Published var phoneLinkKey: String { didSet { defaults.set(phoneLinkKey, forKey: "phoneLinkKey") } }
 
     // Appearance
     @Published var appearance: AppearanceMode { didSet { defaults.set(appearance.rawValue, forKey: "appearance"); applyAppearance() } }
     @Published var accent: AccentChoice { didSet { defaults.set(accent.rawValue, forKey: "accent"); ThemeState.shared.accent = accent } }
     @Published var timerFont: TimerFont { didSet { defaults.set(timerFont.rawValue, forKey: "timerFont"); ThemeState.shared.timerFont = timerFont } }
     @Published var focusBackground: FocusBackground { didSet { defaults.set(focusBackground.rawValue, forKey: "focusBackground") } }
-    /// Show today's time next to the menu bar icon during a session.
-    @Published var menuBarTime: Bool { didSet { defaults.set(menuBarTime, forKey: "menuBarTime") } }
+    /// What the big timers show during a session (Today, the popover and Focus View).
+    @Published var timerShows: TimerShows { didSet { defaults.set(timerShows.rawValue, forKey: "timerShows") } }
+    /// What's next to the menu bar icon during a session.
+    @Published var menuBarShows: MenuBarShows { didSet { defaults.set(menuBarShows.rawValue, forKey: "menuBarShows") } }
+    @Published var showSeconds: Bool { didSet { defaults.set(showSeconds, forKey: "showSeconds") } }
+    /// Open the full-screen Focus View whenever a session starts.
+    @Published var openFocusOnStart: Bool { didSet { defaults.set(openFocusOnStart, forKey: "openFocusOnStart") } }
 
     // Pomodoro: focus rounds with automatic breaks. Only focused time counts towards a round.
     @Published var pomodoro: Bool { didSet { defaults.set(pomodoro, forKey: "pomodoro") } }
@@ -85,7 +94,9 @@ final class AppSettings: ObservableObject {
             "accent": AccentChoice.ember.rawValue,
             "timerFont": TimerFont.rounded.rawValue,
             "focusBackground": FocusBackground.dark.rawValue,
-            "menuBarTime": true,
+            "timerShows": TimerShows.today.rawValue,
+            "showSeconds": true,
+            "openFocusOnStart": false,
             "pomodoro": false,
             "pomodoroMinutes": 25.0,
             "shortBreakMinutes": 5.0,
@@ -113,11 +124,18 @@ final class AppSettings: ObservableObject {
         runShortcuts = defaults.bool(forKey: "runShortcuts")
         startShortcut = defaults.string(forKey: "startShortcut") ?? ""
         endShortcut = defaults.string(forKey: "endShortcut") ?? ""
+        phoneLink = defaults.bool(forKey: "phoneLink")
+        phoneLinkKey = defaults.string(forKey: "phoneLinkKey") ?? ""
         appearance = AppearanceMode(rawValue: defaults.string(forKey: "appearance") ?? "") ?? .system
         accent = AccentChoice(rawValue: defaults.string(forKey: "accent") ?? "") ?? .ember
         timerFont = TimerFont(rawValue: defaults.string(forKey: "timerFont") ?? "") ?? .rounded
         focusBackground = FocusBackground(rawValue: defaults.string(forKey: "focusBackground") ?? "") ?? .dark
-        menuBarTime = defaults.bool(forKey: "menuBarTime")
+        timerShows = TimerShows(rawValue: defaults.string(forKey: "timerShows") ?? "") ?? .today
+        // Earlier builds had an on/off switch for the menu bar time.
+        menuBarShows = MenuBarShows(rawValue: defaults.string(forKey: "menuBarShows") ?? "")
+            ?? (defaults.object(forKey: "menuBarTime") as? Bool == false ? .icon : .today)
+        showSeconds = defaults.bool(forKey: "showSeconds")
+        openFocusOnStart = defaults.bool(forKey: "openFocusOnStart")
         pomodoro = defaults.bool(forKey: "pomodoro")
         pomodoroMinutes = defaults.double(forKey: "pomodoroMinutes")
         shortBreakMinutes = defaults.double(forKey: "shortBreakMinutes")
@@ -210,6 +228,31 @@ enum FocusBackground: String, CaseIterable, Identifiable {
         case .dark: return "Dark"
         case .black: return "Black"
         case .subject: return "Subject colour"
+        }
+    }
+}
+
+enum TimerShows: String, CaseIterable, Identifiable {
+    case today, session, remaining
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .today: return "Today's total"
+        case .session: return "This session"
+        case .remaining: return "Time left in the session"
+        }
+    }
+}
+
+enum MenuBarShows: String, CaseIterable, Identifiable {
+    case icon, today, session, remaining
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .icon: return "Icon only"
+        case .today: return "Today's total"
+        case .session: return "This session"
+        case .remaining: return "Time left in the session"
         }
     }
 }

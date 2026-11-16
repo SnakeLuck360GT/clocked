@@ -16,19 +16,36 @@ The app isn't notarized yet, so the first time you open it go to System Settings
 
 ## How it works
 
-- The camera and mic look for phone use: head down, no typing, sound not from your Mac.
+- The camera and mic look for signs of a phone: your head down with no typing, light from a phone on your face, sound that isn't from your Mac.
+- Looking down to think doesn't count. A hand on your face or looking around reads as thinking.
 - The app and browser tab you're on are checked against your subject.
 - More than 5 seconds out of view counts as away.
-- When you're distracted, the clock pauses and a banner appears.
-- The banner buttons correct mistakes, and a small [neural network](docs/neural-network.md) learns from them.
+- When you're distracted, the clock pauses and a banner appears. The buttons on it correct mistakes, and a small [neural network](docs/neural-network.md) learns from them.
 
 <img src="docs/nudge.png" width="470" alt="Phone use banner">
+
+## iPhone link
+
+Optional. Your iPhone tells Clocked the moment you open Instagram, TikTok or anything else you pick, so it doesn't have to guess. It works over your Wi-Fi with two Shortcuts automations. Setup is a QR code in Clocked and a few taps on your phone.
+
+<img src="docs/phone-setup.png" width="260" alt="iPhone setup page">
+
+## Timers and looks
+
+- Show today's total, this session (like YPT) or the time left.
+- Pomodoro mode with breaks that start on their own.
+- Light or dark, six accent colours, the timer font, and a full-screen Focus View.
+
+<p>
+  <img src="docs/session.png" width="49%" alt="Session timer">
+  <img src="docs/pomodoro.png" width="49%" alt="Pomodoro">
+</p>
 
 ## Privacy
 
 - The camera and mic only run during a session. Nothing is recorded.
 - The app has no internet access. Check with `codesign -d --entitlements - /Applications/Clocked.app`.
-- Study groups are optional and end-to-end encrypted.
+- Study groups and the iPhone link are optional and each runs in its own small helper that can't use the camera or mic.
 
 <p>
   <img src="docs/stats.png" width="62%" alt="Stats">

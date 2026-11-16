@@ -191,6 +191,7 @@ extension SessionController {
         if let f = sample.posture, secondsSince(.leftMouseDown) < 1.5 || secondsSince(.scrollWheel) < 1.5 {
             typingBaseline.accept(asScreen: [f])
         }
+        if let l = sample.lowerFaceLight, let u = sample.upperFaceLight { phoneGlow.add(lower: l, upper: u, usingMac: usingMac) }
         smiling = sample.expression.map(expressionBaseline.isSmiling) ?? false
         posture = verdict(for: sample.posture)
         if let f = sample.posture {

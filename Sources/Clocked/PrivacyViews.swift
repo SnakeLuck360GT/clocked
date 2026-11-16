@@ -5,7 +5,7 @@ struct PrivacyPromises: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.m) {
             Promise(icon: "wifi.slash", title: "Offline unless you say otherwise",
-                    detail: "Clocked works completely offline. Nothing is uploaded unless you turn on online features for study groups.")
+                    detail: "Clocked works completely offline. Nothing is uploaded unless you turn on online features for study groups. The optional iPhone link only receives “app opened” and “app closed” from your own phone on your Wi-Fi.")
             Promise(icon: "camera", title: "Camera and mic only while you study",
                     detail: "They switch on when a session starts and off when it ends or you take a break. Frames and sound are analysed in memory and thrown away. Nothing is recorded.")
             Promise(icon: "cpu", title: "Everything runs on this Mac",

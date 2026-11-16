@@ -26,6 +26,7 @@ It retrains after every 40 new examples and at the end of each session.
 - It's scored on sessions it wasn't trained on.
 - Below 70% accuracy it has no effect. It has full effect at 90%.
 - It can push the evidence up or down, but it can't trigger a banner on its own.
+- Once it's confident you're on your phone, that counts as a sign of a phone, so it gets past the "just looking down" limit and catches you in seconds.
 
 ## What I learned
 

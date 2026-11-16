@@ -52,8 +52,19 @@ struct ClockedApp: App {
 struct MenuBarLabel: View {
     @ObservedObject var c: SessionController
     @ObservedObject private var settings = AppSettings.shared
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
+        label
+            // The menu bar item always exists, so it's the place to open Focus View when a session starts.
+            .onChange(of: c.phase) { old, new in
+                if new == .running, old == .idle || old == .finished, settings.openFocusOnStart {
+                    openWindow(id: "focus")
+                }
+            }
+    }
+
+    @ViewBuilder private var label: some View {
         if c.phase == .running || c.phase.isBreak {
             // Filled stopwatch while focused; the status symbol (phone, away, break…) otherwise.
             HStack(spacing: 4) {
@@ -62,8 +73,11 @@ struct MenuBarLabel: View {
                 } else {
                     Image(systemName: c.menuSymbol)
                 }
-                if settings.menuBarTime {
-                    Text(formatHMS(c.todayTotal)).monospacedDigit()
+                switch settings.menuBarShows {
+                case .icon: EmptyView()
+                case .today: Text(formatTimer(c.todayTotal)).monospacedDigit()
+                case .session: Text(formatTimer(c.focusedTime)).monospacedDigit()
+                case .remaining: Text(formatTimer(c.timerValue(.remaining))).monospacedDigit()
                 }
             }
         } else {

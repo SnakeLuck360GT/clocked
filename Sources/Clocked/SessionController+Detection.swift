@@ -16,6 +16,10 @@ extension SessionController {
             c.phoneVisible = isPhoneSighting(s)
             c.posture = posture
             c.smiling = smiling
+            c.handOnFace = s.handOnFace
+            c.phoneGlow = phoneGlow.glowing
+            c.lookingAround = lookingAround(recentPostures.filter { now.timeIntervalSince($0.time) <= 8 }
+                .map { (yaw: $0.features.yaw, pitch: $0.features.pitch) })
         }
 
         let keys = keyPressCount()
@@ -25,6 +29,8 @@ extension SessionController {
         c.secondsSinceMouse = [CGEventType.mouseMoved, .leftMouseDown, .rightMouseDown, .scrollWheel, .leftMouseDragged]
             .map(secondsSince).min() ?? .infinity
         c.secondsSinceInput = secondsSinceUserInput()
+        if c.keysLast10s > 10 { phoneLink.usingMac() }
+        c.phoneAppOpen = phoneLink.distractingAppOpen
 
         if settings.useMic, micState == .on, let a = lastAudio, now.timeIntervalSince(a.at) < 10 {
             // Video playing from the Mac itself (or a study video in the front tab) isn't phone audio.

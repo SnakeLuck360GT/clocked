@@ -96,22 +96,33 @@ struct AppearanceSettings: View {
                     }
                 }
             }
-            Section("Timer") {
+            Section {
+                Picker("During a session, show", selection: $settings.timerShows) {
+                    ForEach(TimerShows.allCases) { Text($0.title).tag($0) }
+                }
                 Picker("Font", selection: $settings.timerFont) {
                     ForEach(TimerFont.allCases) { Text($0.title).tag($0) }
                 }
+                Toggle("Show seconds", isOn: $settings.showSeconds)
                 LabeledContent("Preview") {
-                    Text("04:12:00")
+                    Text(settings.showSeconds ? "04:12:00" : "04:12")
                         .font(.system(size: 28, weight: .medium, design: settings.timerFont.design).monospacedDigit())
                 }
+            } header: {
+                Text("Timer")
+            } footer: {
+                Text("Outside a session the timer always shows today's total.")
             }
             Section("Focus View") {
                 Picker("Background", selection: $settings.focusBackground) {
                     ForEach(FocusBackground.allCases) { Text($0.title).tag($0) }
                 }
+                Toggle("Open when a session starts", isOn: $settings.openFocusOnStart)
             }
             Section("Menu Bar") {
-                Toggle("Show today's time during a session", isOn: $settings.menuBarTime)
+                Picker("During a session, show", selection: $settings.menuBarShows) {
+                    ForEach(MenuBarShows.allCases) { Text($0.title).tag($0) }
+                }
             }
         }
         .formStyle(.grouped)
@@ -209,6 +220,8 @@ struct AccountabilitySettings: View {
                 Text("While you're on your phone, Messages sends you an iMessage reminder (at most \(SessionController.reminderLimit) per session). iMessage goes through Apple's servers, end-to-end encrypted. Reminders contain only the reminder text and your subject name. Double-check the number: reminders go to whoever it belongs to.")
             }
 
+            PhoneLinkSection(link: c.phoneLink)
+
             Section {
                 Toggle("Run shortcuts when a session starts and ends", isOn: $settings.runShortcuts)
                 TextField("Start shortcut", text: $settings.startShortcut).disabled(!settings.runShortcuts)
@@ -228,6 +241,65 @@ struct AccountabilitySettings: View {
             }
         }
         .formStyle(.grouped)
+    }
+}
+
+/// The iPhone link: a Shortcuts automation on your iPhone tells Clocked when you open a distracting app.
+private struct PhoneLinkSection: View {
+    @ObservedObject var link: PhoneLink
+    @ObservedObject var settings = AppSettings.shared
+    @State private var wizard = false
+    @State private var copied: String?
+
+    var body: some View {
+        Section {
+            if settings.phoneLink {
+                LabeledContent("Status") {
+                    switch link.state {
+                    case .off, .starting: Text("Starting…").foregroundStyle(.secondary)
+                    case .listening: Text("Listening on this Wi-Fi").foregroundStyle(.green)
+                    case .failed(let message): Text(message).foregroundStyle(.red)
+                    }
+                }
+                linkRow("App opened link", "opened")
+                linkRow("App closed link", "closed")
+                HStack {
+                    Button("Set Up Again…") { wizard = true }
+                    Button("New Pairing Key") { link.resetKey() }
+                        .help("The old links stop working. Paste the new ones into your shortcuts.")
+                    Button("Turn Off") { settings.phoneLink = false; link.stop() }
+                    Spacer()
+                    if let last = link.lastMessage {
+                        Text("Last message: app \(last.event), \(last.at.formatted(.relative(presentation: .named)))")
+                            .font(.callout).foregroundStyle(.secondary)
+                    }
+                }
+            } else {
+                HStack {
+                    Text("Let your iPhone tell Clocked the moment you open a distracting app.")
+                    Spacer()
+                    Button("Set Up…") { wizard = true }
+                }
+            }
+        } header: {
+            Text("iPhone")
+        } footer: {
+            Text("Works through a Shortcuts automation on your Wi-Fi. A separate helper receives the messages; nothing goes over the internet.")
+        }
+        .sheet(isPresented: $wizard) { PhoneLinkWizard(link: link) }
+    }
+
+    private func linkRow(_ title: String, _ event: String) -> some View {
+        LabeledContent(title) {
+            HStack {
+                Text(link.link(event)).font(.caption.monospaced()).textSelection(.enabled).lineLimit(1).truncationMode(.middle)
+                Button(copied == event ? "Copied" : "Copy") {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(link.link(event), forType: .string)
+                    copied = event
+                }
+            }
+        }
     }
 }
 

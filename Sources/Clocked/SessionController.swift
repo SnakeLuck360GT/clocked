@@ -87,6 +87,8 @@ final class SessionController: ObservableObject {
     let learner = Learner()
     /// Study groups (optional, off until you connect a backend and join a group).
     let groupSync = GroupSync()
+    /// Messages from your iPhone's Shortcuts automation (opt-in), through the ClockedLink helper.
+    let phoneLink = PhoneLink()
     /// The learned network's latest estimate (nil until it has earned a say).
     @Published var learnedProbability: Float?
     var sessionEpisode: Int32 = 0
@@ -141,6 +143,8 @@ final class SessionController: ObservableObject {
     var typingBaseline = TypingBaseline()
     var expressionBaseline = ExpressionBaseline()
     @Published var smiling = false
+    /// Light from a phone on your face, compared with how it's lit while you use the Mac.
+    var phoneGlow = PhoneGlow()
     var recentPostures: [(time: Date, features: PostureFeatures, verdict: PostureVerdict)] = []
     var keyHistory: [(time: Date, count: UInt32)] = []
     var distractedSince: Date?
@@ -199,6 +203,7 @@ final class SessionController: ObservableObject {
 
     init() {
         defer { Self.current = self }
+        phoneLink.start()
         camera.onSample = { [weak self] sample in
             Task { @MainActor in self?.handle(sample) }
         }
@@ -329,6 +334,7 @@ final class SessionController: ObservableObject {
         resetCorrections()
         evidence.reset()
         typingBaseline.reset(); expressionBaseline.reset()
+        phoneGlow.reset()
         recentPostures = []
         keyHistory = []
         judge.reset()

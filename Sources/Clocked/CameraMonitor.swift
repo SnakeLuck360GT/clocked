@@ -15,6 +15,12 @@ struct CameraSample: Equatable {
     /// The phone sits entirely in the bottom strip of the frame (probably lying on the desk).
     var phoneLowInFrame = false
     var handCount = 0
+    /// A hand at your face (chin on hand, hand on your forehead): a thinking pose, not phone use.
+    var handOnFace = false
+    /// Average brightness (0…1) of your chin and lower face, and of your forehead.
+    /// A phone in your lap lights the face from below; the Mac's screen lights it from the front.
+    var lowerFaceLight: Double?
+    var upperFaceLight: Double?
     /// Head/shoulder posture numbers (nil when nobody is in view).
     var posture: PostureFeatures?
     /// Mouth shape, for spotting a smile (nil when no face).
@@ -199,6 +205,19 @@ final class CameraMonitor: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         }
         sample.handCount = handBoxes.count
 
+        if let face {
+            let b = face.boundingBox
+            let zone = b.insetBy(dx: -b.width * 0.25, dy: -b.height * 0.2)
+            var wrists: [CGPoint] = []
+            if let points = try? bodyRequest.results?.first?.recognizedPoints(.all) {
+                for joint in [VNHumanBodyPoseObservation.JointName.leftWrist, .rightWrist] {
+                    if let p = points[joint], p.confidence > 0.3 { wrists.append(p.location) }
+                }
+            }
+            sample.handOnFace = handBoxes.contains { $0.intersects(zone) } || wrists.contains { zone.contains($0) }
+            (sample.lowerFaceLight, sample.upperFaceLight) = Self.faceLight(pixels, face: b)
+        }
+
         if phoneDetector != nil {
             func phones(_ request: VNCoreMLRequest?, region: CGRect) -> [(Float, CGRect)] {
                 (request?.results as? [VNRecognizedObjectObservation] ?? []).compactMap { obs in
@@ -273,6 +292,35 @@ final class CameraMonitor: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
             return Double((p.y - ys.min()!) / height)
         }
         return values.isEmpty ? nil : values.reduce(0, +) / Double(values.count)
+    }
+
+    /// Brightness of the chin and lower face, and of the forehead, from a coarse grid of pixels (BGRA frames).
+    private static func faceLight(_ pixels: CVPixelBuffer, face b: CGRect) -> (Double?, Double?) {
+        CVPixelBufferLockBaseAddress(pixels, .readOnly)
+        defer { CVPixelBufferUnlockBaseAddress(pixels, .readOnly) }
+        guard CVPixelBufferGetPixelFormatType(pixels) == kCVPixelFormatType_32BGRA,
+              let base = CVPixelBufferGetBaseAddress(pixels) else { return (nil, nil) }
+        let width = CVPixelBufferGetWidth(pixels), height = CVPixelBufferGetHeight(pixels)
+        let rowBytes = CVPixelBufferGetBytesPerRow(pixels)
+        let bytes = base.assumingMemoryBound(to: UInt8.self)
+        func mean(_ r: CGRect) -> Double? {
+            var sum = 0.0, n = 0
+            for i in 0..<8 {
+                for j in 0..<6 {
+                    // Vision's coordinates start at the bottom left; the buffer's rows start at the top.
+                    let x = Int((r.minX + (CGFloat(i) + 0.5) / 8 * r.width) * CGFloat(width))
+                    let y = Int((1 - (r.minY + (CGFloat(j) + 0.5) / 6 * r.height)) * CGFloat(height))
+                    guard x >= 0, x < width, y >= 0, y < height else { continue }
+                    let o = y * rowBytes + x * 4
+                    sum += 0.114 * Double(bytes[o]) + 0.587 * Double(bytes[o + 1]) + 0.299 * Double(bytes[o + 2])
+                    n += 1
+                }
+            }
+            return n >= 24 ? sum / Double(n) / 255 : nil
+        }
+        let lower = CGRect(x: b.minX + b.width * 0.25, y: b.minY, width: b.width * 0.5, height: b.height * 0.3)
+        let upper = CGRect(x: b.minX + b.width * 0.25, y: b.maxY - b.height * 0.22, width: b.width * 0.5, height: b.height * 0.18)
+        return (mean(lower), mean(upper))
     }
 
     private static func expression(outer: VNFaceLandmarkRegion2D?, inner: VNFaceLandmarkRegion2D?) -> ExpressionFeatures? {
