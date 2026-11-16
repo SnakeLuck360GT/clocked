@@ -24,8 +24,8 @@
   <h1>Can't focus while you study?</h1>
   <p class="lead">Clocked is a study timer for the Mac that stops counting the moment you pick up your phone, open Instagram or walk away.</p>
   <div class="dl">
-    <a class="btn" href="downloads/Clocked-3.0.dmg" download>Download for Mac</a>
-    <p class="small">Version 3.0. Requires macOS 26 on Apple Silicon.</p>
+    <a class="btn" href="downloads/Clocked-3.1.dmg" download>Download for Mac</a>
+    <p class="small">Version 3.1. Requires macOS 26 on Apple Silicon.</p>
   </div>
 </header>
 
@@ -56,7 +56,7 @@
   <section class="points">
     <div>
       <h3>Your phone</h3>
-      <p>It notices your head drop and your hands stop typing, even with the phone hidden in your lap.</p>
+      <p>It looks for signs of a phone, even one hidden in your lap, and leaves you alone when you look down to think.</p>
     </div>
     <div>
       <h3>Apps and tabs</h3>
@@ -65,6 +65,10 @@
     <div>
       <h3>Leaving your desk</h3>
       <p>Five seconds out of view and you're marked away.</p>
+    </div>
+    <div>
+      <h3>Your iPhone, if you like</h3>
+      <p>Link it and opening Instagram or TikTok stops the clock instantly. <a href="iphone/">Set it up</a>.</p>
     </div>
   </section>
 
@@ -118,6 +122,7 @@
         <li><b>Study groups are separate.</b> They're off until you turn them on, and they run in a small helper inside the app, ClockedSync, that can reach the internet but can't use the camera or mic. It only gets your totals after they're encrypted on your Mac, and the invite code is the key, so the server can't read them.
           <pre class="cmd"><code>codesign -d --entitlements - /Applications/Clocked.app/Contents/XPCServices/ClockedSync.xpc</code></pre>
         </li>
+        <li><b>The iPhone link is separate too.</b> It's off until you set it up. A second helper, ClockedLink, only accepts messages from your own Wi-Fi that carry your pairing key, and it can't use the camera, mic or your files.</li>
       </ul>
     </div>
   </section>
@@ -129,7 +134,7 @@
       <li>The first time, open System Settings &rarr; Privacy &amp; Security and click Open Anyway.</li>
     </ol>
     <div class="dl">
-      <a class="btn" href="downloads/Clocked-3.0.dmg" download>Download Clocked 3.0</a>
+      <a class="btn" href="downloads/Clocked-3.1.dmg" download>Download Clocked 3.1</a>
     </div>
   </section>
 </main>

@@ -214,7 +214,7 @@ button { font: inherit; color: inherit; }
 /* Below the demo */
 main.wrap { margin-top: clamp(64px, 9vw, 104px); }
 .points { display: grid; gap: 28px 48px; padding-bottom: clamp(48px, 7vw, 80px); border-bottom: 1px solid var(--line); }
-@media (min-width: 760px) { .points { grid-template-columns: repeat(3, 1fr); } }
+@media (min-width: 760px) { .points { grid-template-columns: repeat(2, 1fr); } }
 .points h3 { font-size: 17px; font-weight: 600; margin-bottom: 4px; }
 .points p { color: var(--text-2); margin: 0; }
 #privacy, #install, #try { padding: clamp(48px, 7vw, 80px) 0; }
