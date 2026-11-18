@@ -48,7 +48,17 @@ final class AppSettings: ObservableObject {
 
     // Appearance
     @Published var appearance: AppearanceMode { didSet { defaults.set(appearance.rawValue, forKey: "appearance"); applyAppearance() } }
-    @Published var accent: AccentChoice { didSet { defaults.set(accent.rawValue, forKey: "accent"); ThemeState.shared.accent = accent } }
+    /// Classic (the original look) or Mac (system-style sidebar, toolbar and a separate Settings window).
+    @Published var interfaceStyle: InterfaceStyle { didSet { defaults.set(interfaceStyle.rawValue, forKey: "interfaceStyle"); ThemeState.shared.style = interfaceStyle } }
+    /// Accent, subject colours and Focus View background, together.
+    @Published var theme: ThemePreset { didSet { defaults.set(theme.rawValue, forKey: "theme"); updateTheme() } }
+    /// The Custom theme's colours.
+    @Published var customAccent: String { didSet { defaults.set(customAccent, forKey: "customAccent"); updateTheme() } }
+    @Published var customFocusTop: String { didSet { defaults.set(customFocusTop, forKey: "customFocusTop"); updateTheme() } }
+    @Published var customFocusBottom: String { didSet { defaults.set(customFocusBottom, forKey: "customFocusBottom"); updateTheme() } }
+    /// The Dock icon while Clocked is running.
+    @Published var appIcon: AppIconChoice { didSet { defaults.set(appIcon.rawValue, forKey: "appIcon"); Task { @MainActor in AppIcon.apply() } } }
+    @Published var menuBarIcon: MenuBarIcon { didSet { defaults.set(menuBarIcon.rawValue, forKey: "menuBarIcon") } }
     @Published var timerFont: TimerFont { didSet { defaults.set(timerFont.rawValue, forKey: "timerFont"); ThemeState.shared.timerFont = timerFont } }
     @Published var focusBackground: FocusBackground { didSet { defaults.set(focusBackground.rawValue, forKey: "focusBackground") } }
     /// What the big timers show during a session (Today, the popover and Focus View).
@@ -91,7 +101,12 @@ final class AppSettings: ObservableObject {
             "startShortcut": "Study Start",
             "endShortcut": "Study End",
             "appearance": AppearanceMode.system.rawValue,
-            "accent": AccentChoice.ember.rawValue,
+            "interfaceStyle": InterfaceStyle.classic.rawValue,
+            "customAccent": "#EF4F2C",
+            "customFocusTop": "#2A1E1B",
+            "customFocusBottom": "#101015",
+            "appIcon": AppIconChoice.light.rawValue,
+            "menuBarIcon": MenuBarIcon.logo.rawValue,
             "timerFont": TimerFont.rounded.rawValue,
             "focusBackground": FocusBackground.dark.rawValue,
             "timerShows": TimerShows.today.rawValue,
@@ -127,7 +142,15 @@ final class AppSettings: ObservableObject {
         phoneLink = defaults.bool(forKey: "phoneLink")
         phoneLinkKey = defaults.string(forKey: "phoneLinkKey") ?? ""
         appearance = AppearanceMode(rawValue: defaults.string(forKey: "appearance") ?? "") ?? .system
-        accent = AccentChoice(rawValue: defaults.string(forKey: "accent") ?? "") ?? .ember
+        interfaceStyle = InterfaceStyle(rawValue: defaults.string(forKey: "interfaceStyle") ?? "") ?? .classic
+        // Earlier builds had an accent colour on its own; each one became the theme with that accent.
+        theme = ThemePreset(rawValue: defaults.string(forKey: "theme") ?? "")
+            ?? ThemePreset.from(accent: defaults.string(forKey: "accent"))
+        customAccent = defaults.string(forKey: "customAccent") ?? "#EF4F2C"
+        customFocusTop = defaults.string(forKey: "customFocusTop") ?? "#2A1E1B"
+        customFocusBottom = defaults.string(forKey: "customFocusBottom") ?? "#101015"
+        appIcon = AppIconChoice(rawValue: defaults.string(forKey: "appIcon") ?? "") ?? .light
+        menuBarIcon = MenuBarIcon(rawValue: defaults.string(forKey: "menuBarIcon") ?? "") ?? .logo
         timerFont = TimerFont(rawValue: defaults.string(forKey: "timerFont") ?? "") ?? .rounded
         focusBackground = FocusBackground(rawValue: defaults.string(forKey: "focusBackground") ?? "") ?? .dark
         timerShows = TimerShows(rawValue: defaults.string(forKey: "timerShows") ?? "") ?? .today
@@ -141,8 +164,22 @@ final class AppSettings: ObservableObject {
         shortBreakMinutes = defaults.double(forKey: "shortBreakMinutes")
         longBreakMinutes = defaults.double(forKey: "longBreakMinutes")
         roundsPerSet = max(2, defaults.integer(forKey: "roundsPerSet"))
-        ThemeState.shared.accent = accent
         ThemeState.shared.timerFont = timerFont
+        ThemeState.shared.style = interfaceStyle
+        updateTheme()
+    }
+
+    /// The Custom theme: your accent and Focus View colours, with the standard subject colours.
+    var customColors: ThemeColors {
+        ThemeColors(accent: Color(hex: customAccent), palette: ThemePreset.ember.colors.palette,
+                    night: [Color(hex: customFocusTop), Color(hex: customFocusBottom)])
+    }
+
+    /// Pushes the theme's colours to ThemeState, which every view reads them from.
+    func updateTheme() {
+        let state = ThemeState.shared
+        state.colors = theme == .custom ? customColors : theme.colors
+        if appIcon == .theme { Task { @MainActor in AppIcon.apply() } }
     }
 
     /// Light, dark or the system setting, for every window including the menu bar popover.
@@ -189,23 +226,6 @@ enum AppearanceMode: String, CaseIterable, Identifiable {
     }
 }
 
-/// Accent colours. Ember matches the app icon.
-enum AccentChoice: String, CaseIterable, Identifiable {
-    case ember, blue, purple, green, pink, graphite
-    var id: String { rawValue }
-    var title: String { rawValue.capitalized }
-    var hex: String {
-        switch self {
-        case .ember: return "#EF4F2C"
-        case .blue: return "#2F7CF6"
-        case .purple: return "#7C5CFC"
-        case .green: return "#2F9E5B"
-        case .pink: return "#E64980"
-        case .graphite: return "#6E6E76"
-        }
-    }
-    var color: Color { Color(hex: hex) }
-}
 
 enum TimerFont: String, CaseIterable, Identifiable {
     case rounded, monospaced, standard

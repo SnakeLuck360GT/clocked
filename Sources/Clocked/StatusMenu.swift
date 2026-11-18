@@ -5,10 +5,7 @@ struct StatusPopover: View {
     @EnvironmentObject var c: SessionController
     @ObservedObject var settings = AppSettings.shared
     @Environment(\.openWindow) private var openWindow
-    private func showSettings() {
-        c.selectedPane = .general
-        showMainWindow(openWindow)
-    }
+    private func showSettings() { c.showSettings() }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.m) {
@@ -48,8 +45,9 @@ struct StatusPopover: View {
     }
 
     private func footerButton(_ symbol: String, _ label: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) { Image(systemName: symbol).font(.system(size: 14)) }
+        Button(action: action) { Image(systemName: symbol).font(.system(size: Theme.mac ? 13 : 14)) }
             .buttonStyle(.borderless)
+            .foregroundStyle(Theme.mac ? AnyShapeStyle(.secondary) : AnyShapeStyle(.tint))
             .help(label)
             .accessibilityLabel(label)
     }
@@ -103,10 +101,7 @@ struct SettingsCommand: View {
     @ObservedObject var c: SessionController
     @Environment(\.openWindow) private var openWindow
     var body: some View {
-        Button("Settings…") {
-            c.selectedPane = .general
-            showMainWindow(openWindow)
-        }
+        Button("Settings…") { c.showSettings() }
         .keyboardShortcut(",", modifiers: .command)
     }
 }

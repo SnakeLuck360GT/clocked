@@ -1,11 +1,18 @@
 import Charts
 import SwiftUI
 
+/// Stats is split into three short views rather than one long page.
+enum StatsTab: String, CaseIterable, Identifiable {
+    case calendar = "Calendar", trends = "Trends", focus = "Focus"
+    var id: String { rawValue }
+}
+
 struct StatsPane: View {
     @EnvironmentObject var c: SessionController
     @State private var month = Calendar.current.dateInterval(of: .month, for: Date())!.start
     @State private var selected = Calendar.current.startOfDay(for: Date())
     @State private var confirmClear = false
+    @AppStorage("statsTab") private var tab: StatsTab = .calendar
 
     private let calendar = Calendar.current
     private var dailyGoal: Double { AppSettings.shared.dailyGoalMinutes * 60 }
@@ -14,19 +21,25 @@ struct StatsPane: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 summaryRow
-                // Side by side when there's room, stacked when the window is narrow.
-                ViewThatFits(in: .horizontal) {
-                    HStack(alignment: .top, spacing: 16) {
-                        Card { monthHeatmap }.frame(minWidth: 340)
-                        Card { dayDetail }.frame(minWidth: 300)
+                switch tab {
+                case .calendar:
+                    // Side by side when there's room, stacked when the window is narrow.
+                    ViewThatFits(in: .horizontal) {
+                        HStack(alignment: .top, spacing: 16) {
+                            Card { monthHeatmap }.frame(minWidth: 340)
+                            Card { dayDetail }.frame(minWidth: 300)
+                        }
+                        VStack(spacing: 16) {
+                            Card { monthHeatmap }
+                            Card { dayDetail }
+                        }
                     }
-                    VStack(spacing: 16) {
-                        Card { monthHeatmap }
-                        Card { dayDetail }
-                    }
+                    Card { hourChart }
+                case .trends:
+                    StatsAnalytics(part: .trends)
+                case .focus:
+                    StatsAnalytics(part: .focus)
                 }
-                Card { hourChart }
-                Card { weekChart }
             }
             .frame(maxWidth: 1100)
             .padding(Theme.Space.xl)
@@ -35,8 +48,17 @@ struct StatsPane: View {
         .background(Theme.canvas)
         .navigationTitle("Stats")
         .toolbar {
-            Button("Clear Statistics", systemImage: "trash") { confirmClear = true }
-                .disabled(c.studyLog.days.isEmpty)
+            ToolbarItem(placement: .principal) {
+                Picker("View", selection: $tab) {
+                    ForEach(StatsTab.allCases) { Text($0.rawValue).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .fixedSize()
+            }
+            ToolbarItem {
+                Button("Clear Statistics", systemImage: "trash") { confirmClear = true }
+                    .disabled(c.studyLog.days.isEmpty)
+            }
         }
         .confirmationDialog("Clear all study statistics?", isPresented: $confirmClear) {
             Button("Clear Statistics", role: .destructive) { c.studyLog.clear() }
@@ -59,9 +81,21 @@ struct StatsPane: View {
             SummaryTile(symbol: "chart.line.uptrend.xyaxis", title: "Daily average", value: formatHours(monthTotal / Double(daysSoFar)))
             SummaryTile(symbol: "flame.fill", title: "Streak", value: streak == 1 ? "1 day" : "\(streak) days", tint: Theme.accent)
         }
-        return ViewThatFits(in: .horizontal) {
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(minimum: 130), spacing: 12), count: 5), spacing: 12) { tiles }
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3), spacing: 12) { tiles }
+        return Group {
+            if Theme.mac {
+                // One strip with dividers, like the summary bar in Activity Monitor.
+                Card(padding: 0) {
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 0) { tiles }
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 0), count: 3), spacing: 0) { tiles }
+                    }
+                }
+            } else {
+                ViewThatFits(in: .horizontal) {
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(minimum: 130), spacing: 12), count: 5), spacing: 12) { tiles }
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3), spacing: 12) { tiles }
+                }
+            }
         }
     }
 
@@ -254,42 +288,6 @@ struct StatsPane: View {
             }
         }
     }
-
-    // MARK: Week chart
-
-    private var weekChart: some View {
-        let today = calendar.startOfDay(for: Date())
-        let days = (0..<7).reversed().map { calendar.date(byAdding: .day, value: -$0, to: today)! }
-        let labels = days.map { calendar.isDateInToday($0) ? "Today" : $0.formatted(.dateTime.weekday(.abbreviated)) }
-        let rows: [(day: String, name: String, hours: Double)] = zip(days, labels).flatMap { day, label in
-            c.studyLog.record(on: day).totals.map { id, seconds in
-                (label, c.subjects.subject(id: id)?.name ?? "Other", seconds / 3600)
-            }
-        }
-        // Legend only lists subjects that appear this week.
-        let shown = Set(rows.map(\.name))
-        let known = c.subjects.subjects.filter { shown.contains($0.name) }
-        let names = known.map(\.name) + (shown.contains("Other") ? ["Other"] : [])
-        let colors = known.map(\.color) + (shown.contains("Other") ? [Color.gray] : [])
-        return VStack(alignment: .leading, spacing: 10) {
-            Text("Last 7 Days").font(.headline)
-            Chart {
-                ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
-                    BarMark(x: .value("Day", row.day), y: .value("Hours", row.hours))
-                        .foregroundStyle(by: .value("Subject", row.name))
-                }
-            }
-            .chartForegroundStyleScale(domain: names, range: colors)
-            .chartXScale(domain: labels)
-            .chartYAxis {
-                AxisMarks { value in
-                    AxisGridLine()
-                    AxisValueLabel { if let h = value.as(Double.self) { Text("\(h, format: .number)h") } }
-                }
-            }
-            .frame(height: 180)
-        }
-    }
 }
 
 // MARK: - Pieces
@@ -321,17 +319,19 @@ private struct DayCell: View {
 
     var body: some View {
         let level = heatLevel(seconds, goal: goal)
-        RoundedRectangle(cornerRadius: 8, style: .continuous)
+        let radius: CGFloat = Theme.mac ? 5 : 8
+        RoundedRectangle(cornerRadius: radius, style: .continuous)
             .fill(isFuture ? Color.clear : heatColor(level: level))
             .aspectRatio(1, contentMode: .fit)
-            .frame(maxWidth: 40, maxHeight: 40)
+            .frame(maxWidth: Theme.mac ? 34 : 40, maxHeight: Theme.mac ? 34 : 40)
             .overlay {
                 Text("\(Calendar.current.component(.day, from: day))")
                     .font(.caption2.weight(isToday ? .bold : .regular))
                     .foregroundStyle(isFuture ? AnyShapeStyle(.tertiary) : (level >= 3 ? AnyShapeStyle(.white) : AnyShapeStyle(.primary)))
             }
             .overlay {
-                RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(isSelected ? Theme.accent : .clear, lineWidth: 2)
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .strokeBorder(isSelected ? (Theme.mac ? Color.primary.opacity(0.7) : Theme.accent) : .clear, lineWidth: Theme.mac ? 1.5 : 2)
             }
             .help(isFuture ? "" : (seconds > 0 ? formatHMS(seconds) : "No study"))
             .contentShape(Rectangle())
@@ -374,6 +374,20 @@ private struct SummaryTile: View {
     let value: String
     var tint: Color = .secondary
     var body: some View {
+        if Theme.mac {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title).font(.callout).foregroundStyle(.secondary)
+                Text(value).font(.title2.monospacedDigit()).lineLimit(1).minimumScaleFactor(0.7)
+            }
+            .padding(.horizontal, 16).padding(.vertical, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .overlay(alignment: .leading) { Divider().padding(.vertical, 12) }
+        } else {
+            classic
+        }
+    }
+
+    private var classic: some View {
         VStack(alignment: .leading, spacing: 6) {
             Label(title, systemImage: symbol).font(.caption).foregroundStyle(tint == .secondary ? Color.secondary : tint)
             Text(value).font(.title2.weight(.semibold).monospacedDigit()).lineLimit(1).minimumScaleFactor(0.7)

@@ -7,20 +7,25 @@ import SwiftUI
 /// - Subject colours: a subject's identity only (ring segments, play buttons, bars, dots, a light row tint).
 /// - Status: green = focused, `warning` (amber) = distracted, grey = paused, blue = break, red = destructive.
 enum Theme {
-    /// The accent chosen in Settings → Appearance (Ember by default).
-    static var accent: Color { ThemeState.shared.accent.color }
+    /// The theme's accent (Ember by default).
+    static var accent: Color { ThemeState.shared.colors.accent }
+    /// The Mac interface style (Settings → Appearance), rather than Classic.
+    static var mac: Bool { ThemeState.shared.style == .mac }
     /// Font design for the large timers.
     static var timerDesign: Font.Design { ThemeState.shared.timerFont.design }
     static let warning = Color(hex: "#E39B2E")
-    /// Deep backgrounds (Focus View, curtain).
-    static let night = [Color(hex: "#2A1E1B"), Color(hex: "#101015")]
+    /// Deep backgrounds (Focus View, curtain), from the theme.
+    static var night: [Color] { ThemeState.shared.colors.night }
 
-    /// Window background behind cards.
-    static let canvas = dynamic(light: "#FBF7F4", dark: "#16161B")
-    /// Card surface.
-    static let card = dynamic(light: "#FFFFFF", dark: "#24232A")
+    /// Window background behind cards: warm in Classic, the system's in Mac.
+    static var canvas: Color { mac ? Color(nsColor: .windowBackgroundColor) : classicCanvas }
+    /// Card surface: white or charcoal in Classic; a quiet fill like a grouped Form section in Mac.
+    static var card: Color { mac ? Color.primary.opacity(0.035) : classicCard }
     /// Raised element on a card (stat tiles, chips).
-    static let raised = dynamic(light: "#F1E7DF", dark: "#2E2D35")
+    static var raised: Color { mac ? Color.primary.opacity(0.05) : classicRaised }
+    private static let classicCanvas = dynamic(light: "#FBF7F4", dark: "#16161B")
+    private static let classicCard = dynamic(light: "#FFFFFF", dark: "#24232A")
+    private static let classicRaised = dynamic(light: "#F1E7DF", dark: "#2E2D35")
     /// Empty ring and bar tracks.
     static let track = Color.primary.opacity(0.08)
 
@@ -28,7 +33,9 @@ enum Theme {
         static let xs: CGFloat = 4, s: CGFloat = 8, m: CGFloat = 12, l: CGFloat = 16, xl: CGFloat = 24, xxl: CGFloat = 32
     }
     enum Radius {
-        static let chip: CGFloat = 6, row: CGFloat = 10, card: CGFloat = 14
+        static var chip: CGFloat { Theme.mac ? 4 : 6 }
+        static var row: CGFloat { Theme.mac ? 6 : 10 }
+        static var card: CGFloat { Theme.mac ? 10 : 14 }
     }
 
     private static func dynamic(light: String, dark: String) -> Color {
@@ -39,17 +46,28 @@ enum Theme {
     }
 }
 
-/// The accent and timer font, observable so any view that reads `Theme.accent` or `Theme.timerDesign`
-/// redraws when they change, without rebuilding the window. Kept in step by AppSettings.
+/// The theme colours, interface style and timer font, observable so any view that reads `Theme.accent`,
+/// `Theme.mac` or `Theme.timerDesign` redraws when they change, without rebuilding the window. Kept in step by AppSettings.
 final class ThemeState: Observable {
     static let shared = ThemeState()
     private let registrar = ObservationRegistrar()
-    private var _accent = AccentChoice.ember
+    private var _colors = ThemePreset.ember.colors
+    private var _style = InterfaceStyle.classic
     private var _timerFont = TimerFont.rounded
 
-    var accent: AccentChoice {
-        get { registrar.access(self, keyPath: \.accent); return _accent }
-        set { registrar.withMutation(of: self, keyPath: \.accent) { _accent = newValue } }
+    var colors: ThemeColors {
+        get { registrar.access(self, keyPath: \.colors); return _colors }
+        set { registrar.withMutation(of: self, keyPath: \.colors) { _colors = newValue } }
+    }
+    var style: InterfaceStyle {
+        get { registrar.access(self, keyPath: \.style); return _style }
+        set { registrar.withMutation(of: self, keyPath: \.style) { _style = newValue } }
+    }
+
+    /// A subject's colour in the current theme: palette colours follow the theme, others stay as they are.
+    func subjectColor(_ hex: String) -> Color {
+        if let i = Subject.palette.firstIndex(of: hex.uppercased()), i < colors.palette.count { return colors.palette[i] }
+        return Color(hex: hex)
     }
     var timerFont: TimerFont {
         get { registrar.access(self, keyPath: \.timerFont); return _timerFont }
@@ -74,7 +92,7 @@ struct Card<Content: View>: View {
             .padding(padding)
             .frame(maxWidth: .infinity, alignment: .topLeading)
             .background(Theme.card, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous).strokeBorder(Color.primary.opacity(0.06)))
+            .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous).strokeBorder(Color.primary.opacity(Theme.mac ? 0.05 : 0.06)))
     }
 }
 
@@ -180,14 +198,14 @@ struct SubjectPlayButton: View {
     var body: some View {
         Button(action: action) {
             ZStack {
-                Circle().fill(color.gradient)
+                if Theme.mac { Circle().fill(color) } else { Circle().fill(color.gradient) }
                 Image(systemName: isRunning ? "stop.fill" : "play.fill")
-                    .font(.system(size: size * 0.36, weight: .bold))
+                    .font(.system(size: size * (Theme.mac ? 0.34 : 0.36), weight: Theme.mac ? .semibold : .bold))
                     .foregroundStyle(.white)
                     .offset(x: isRunning ? 0 : size * 0.04)
             }
             .frame(width: size, height: size)
-            .shadow(color: color.opacity(isRunning ? 0.45 : 0.2), radius: isRunning ? 6 : 2, y: 1)
+            .shadow(color: Theme.mac ? .clear : color.opacity(isRunning ? 0.45 : 0.2), radius: isRunning ? 6 : 2, y: 1)
         }
         .buttonStyle(.plain)
     }
@@ -198,10 +216,18 @@ struct Chip: View {
     let text: String
     var color: Color = .secondary
     var body: some View {
-        Text(text)
-            .font(.caption.weight(.semibold).monospacedDigit())
-            .padding(.horizontal, 7).padding(.vertical, 2)
-            .background(color.opacity(0.15), in: RoundedRectangle(cornerRadius: Theme.Radius.chip, style: .continuous))
-            .foregroundStyle(color)
+        if Theme.mac {
+            Text(text)
+                .font(.caption.weight(.medium).monospacedDigit())
+                .padding(.horizontal, 5).padding(.vertical, 1)
+                .overlay(RoundedRectangle(cornerRadius: Theme.Radius.chip, style: .continuous).strokeBorder(color.opacity(0.5), lineWidth: 1))
+                .foregroundStyle(color)
+        } else {
+            Text(text)
+                .font(.caption.weight(.semibold).monospacedDigit())
+                .padding(.horizontal, 7).padding(.vertical, 2)
+                .background(color.opacity(0.15), in: RoundedRectangle(cornerRadius: Theme.Radius.chip, style: .continuous))
+                .foregroundStyle(color)
+        }
     }
 }

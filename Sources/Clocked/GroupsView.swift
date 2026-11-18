@@ -106,7 +106,7 @@ private struct YouBar: View {
                 Toggle("Subjects", isOn: Binding(get: { sync.shareSubjects }, set: { sync.shareSubjects = $0 }))
                 Toggle("Profile photo", isOn: Binding(get: { sync.sharePhoto }, set: { sync.sharePhoto = $0 }))
                 Divider()
-                Button("Privacy Settings…") { c.selectedPane = .privacy }
+                Button("Privacy Settings…") { c.showSettings(.privacy) }
             } label: {
                 Label("Sharing", systemImage: "lock.fill")
             }
@@ -543,7 +543,7 @@ private struct NeedsDatabase: View {
             Text("Connect your database").font(.title.weight(.semibold))
             Text("You chose to use your own Supabase database. Finish setting it up, or paste a friend's connection code, in Settings → Privacy.")
                 .foregroundStyle(.secondary).multilineTextAlignment(.center).frame(maxWidth: 460)
-            Button("Open Privacy Settings") { c.selectedPane = .privacy }.buttonStyle(.borderedProminent)
+            Button("Open Privacy Settings") { c.showSettings(.privacy) }.buttonStyle(.borderedProminent)
         }
         .frame(maxWidth: .infinity)
     }

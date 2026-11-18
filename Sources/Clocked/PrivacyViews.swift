@@ -209,7 +209,7 @@ struct DatabaseSettings: View {
 struct OnlineStatusLine: View {
     @EnvironmentObject var c: SessionController
     var body: some View {
-        Button { c.selectedPane = .privacy } label: {
+        Button { c.showSettings(.privacy) } label: {
             HStack(spacing: 6) {
                 Image(systemName: c.groupSync.isOnline ? "globe" : "lock.fill")
                 VStack(alignment: .leading, spacing: 0) {

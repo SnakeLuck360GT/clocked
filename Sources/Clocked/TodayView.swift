@@ -28,13 +28,14 @@ struct TodayPane: View {
         ScrollView {
             VStack(spacing: Theme.Space.l) {
                 TodayHero()
-                    .padding(.vertical, Theme.Space.xl)
+                    .padding(.vertical, Theme.mac ? Theme.Space.l : Theme.Space.xl)
 
-                Card(padding: 12) { SubjectList() }
+                Card(padding: Theme.mac ? 8 : 12) { SubjectList() }
 
                 switch c.phase {
                 case .idle, .finished:
-                    Card { SessionOptions() }
+                    // Mac style: these live in the window toolbar.
+                    if !Theme.mac { Card { SessionOptions() } }
                     if c.phase == .finished, let s = c.lastSummary {
                         Card {
                             VStack(alignment: .leading, spacing: Theme.Space.m) {
@@ -51,12 +52,71 @@ struct TodayPane: View {
                     }
                 }
             }
-            .frame(maxWidth: 680)
+            .frame(maxWidth: Theme.mac ? 620 : 680)
             .padding(.horizontal, Theme.Space.xl)
             .padding(.bottom, Theme.Space.xl)
             .frame(maxWidth: .infinity)
         }
         .navigationTitle("Today")
+        .navigationSubtitle(Theme.mac ? Date().formatted(.dateTime.weekday(.wide).day().month(.wide)) : "")
+        .toolbar { TodayToolbar() }
+    }
+}
+
+/// Mac style: session settings before a session, and its controls during one, in the window toolbar.
+struct TodayToolbar: ToolbarContent {
+    @EnvironmentObject var c: SessionController
+    @ObservedObject var settings = AppSettings.shared
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some ToolbarContent {
+        if settings.interfaceStyle == .mac {
+            switch c.phase {
+            case .idle, .finished:
+                ToolbarItemGroup {
+                    Picker("Goal", selection: $settings.goalMinutes) {
+                        Text("No goal").tag(0.0)
+                        ForEach([25.0, 50, 90, 120], id: \.self) { Text("\(Int($0)) min goal").tag($0) }
+                    }
+                    .help("Minutes of actual study for this session. Distractions extend it.")
+                    Picker("Strictness", selection: $settings.strictness) {
+                        ForEach(Strictness.allCases) { Text($0.title).tag($0) }
+                    }
+                    .help(settings.strictness.summary)
+                    Picker("Style", selection: $settings.studyStyle) {
+                        Text("Typing").tag(StudyStyle.typing)
+                        Text("Paper").tag(StudyStyle.writing)
+                        Text("Typing & paper").tag(StudyStyle.both)
+                    }
+                    .help(settings.studyStyle.help)
+                }
+                ToolbarItemGroup {
+                    Toggle("Camera", systemImage: "camera", isOn: $settings.useCamera).help("Camera")
+                    Toggle("Microphone", systemImage: "mic", isOn: $settings.useMic).help("Microphone")
+                    Toggle("Active app and tab", systemImage: "macwindow", isOn: $settings.useScreen).help("Active app and tab")
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    Button("Start", systemImage: "play.fill") { c.start() }
+                        .labelStyle(.titleAndIcon)
+                        .buttonStyle(.borderedProminent)
+                        .help("Start a session (\(c.currentSubject?.name ?? "no subject"))")
+                }
+            case .running, .onBreak:
+                ToolbarItemGroup {
+                    Button("Focus View", systemImage: "arrow.up.left.and.arrow.down.right") { openWindow(id: "focus") }
+                        .help("Focus View (⌃⌘F)")
+                    if c.phase.isBreak {
+                        Button("Resume", systemImage: "play.fill") { c.resume() }
+                    } else {
+                        Button("Break", systemImage: "cup.and.saucer") { c.takeBreak() }
+                    }
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    Button("End Session", systemImage: "stop.fill") { c.requestEnd() }
+                        .labelStyle(.titleAndIcon)
+                }
+            }
+        }
     }
 }
 
@@ -106,7 +166,8 @@ struct TodayHero: View {
 
     private var label: String {
         switch shows {
-        case .today: return Date().formatted(.dateTime.weekday(.wide).month(.abbreviated).day())
+        // Mac style shows the date as the window subtitle.
+        case .today: return Theme.mac && !compact ? "Today" : Date().formatted(.dateTime.weekday(.wide).month(.abbreviated).day())
         case .session: return "This session"
         case .remaining: return c.studyGoal > 0 ? "Left this session" : "This session"
         }
@@ -126,21 +187,30 @@ struct TodayHero: View {
     }
 
     private var content: some View {
-        let diameter: CGFloat = compact ? 150 : 240
+        let mac = Theme.mac
+        let diameter: CGFloat = compact ? 150 : (mac ? 220 : 240)
         let percent = Int((c.todayTotal / dailyGoal * 100).rounded())
         return VStack(spacing: compact ? Theme.Space.s : Theme.Space.m) {
             ZStack {
-                ring(compact ? 10 : 18)
+                ring(mac ? (compact ? 7 : 10) : (compact ? 10 : 18))
                 VStack(spacing: compact ? 2 : 4) {
                     Text(label)
                         .font(compact ? .caption2 : .callout).foregroundStyle(.secondary)
                     Text(formatTimer(c.timerValue(shows)))
-                        .font(.system(size: compact ? 28 : 46, weight: .medium, design: Theme.timerDesign).monospacedDigit())
+                        .font(.system(size: mac ? (compact ? 30 : 48) : (compact ? 28 : 46), weight: mac ? .light : .medium,
+                                      design: Theme.timerDesign).monospacedDigit())
                         .lineLimit(1)
                         .minimumScaleFactor(0.5)
                         .foregroundStyle(paused ? Color.secondary : Color.primary)
                         .contentTransition(.numericText())
-                    if isActive {
+                    if isActive, mac {
+                        HStack(spacing: 5) {
+                            Circle().fill(statusLine.1).frame(width: 7, height: 7)
+                            Text(statusLine.0).foregroundStyle(.secondary)
+                        }
+                        .font(compact ? .caption : .callout)
+                        .lineLimit(1)
+                    } else if isActive {
                         Text(statusLine.0)
                             .font((compact ? Font.caption : .callout).weight(.semibold))
                             .foregroundStyle(statusLine.1)
@@ -230,14 +300,18 @@ struct SubjectList: View {
     @State private var editingExam: Subject?
     @State private var examDate = Date()
 
+    private var mac: Bool { Theme.mac }
+    private var rowHeight: CGFloat { mac ? (compact ? 34 : 40) : (compact ? 40 : 52) }
+    private var dividerInset: CGFloat { mac ? (compact ? 40 : 48) : (compact ? 44 : 60) }
+
     var body: some View {
         VStack(spacing: 0) {
             ForEach(Array(c.subjects.subjects.enumerated()), id: \.element.id) { index, subject in
-                if index > 0 { Divider().padding(.leading, compact ? 44 : 60) }
+                if index > 0 { Divider().padding(.leading, dividerInset) }
                 row(subject)
             }
             if showsAdd {
-                if !c.subjects.subjects.isEmpty { Divider().padding(.leading, compact ? 44 : 60) }
+                if !c.subjects.subjects.isEmpty { Divider().padding(.leading, dividerInset) }
                 addRow
             }
         }
@@ -259,13 +333,16 @@ struct SubjectList: View {
         let isCurrent = subject.id == c.currentSubjectID && (c.phase == .running || c.phase.isBreak)
         let time = c.todayTime(for: subject)
         return HStack(spacing: Theme.Space.m) {
-            SubjectPlayButton(color: subject.color, isRunning: isCurrent, size: compact ? 28 : 36) {
+            SubjectPlayButton(color: subject.color, isRunning: isCurrent, size: mac ? (compact ? 22 : 26) : (compact ? 28 : 36)) {
                 if isCurrent { c.requestEnd() } else { c.start(subject: subject) }
             }
             .accessibilityLabel(isCurrent ? "Stop \(subject.name)" : "Start \(subject.name)")
             .help(isCurrent ? "End session" : (c.phase == .running ? "Switch to \(subject.name)" : "Start \(subject.name)"))
+            if let symbol = subject.symbol {
+                Image(systemName: symbol).foregroundStyle(subject.color).frame(width: 18)
+            }
             Text(subject.name)
-                .font(compact ? .body : .body.weight(.medium))
+                .font(mac ? (isCurrent ? .body.weight(.semibold) : .body) : (compact ? .body : .body.weight(.medium)))
                 .lineLimit(1)
             if let days = subject.daysToExam {
                 Chip(text: days == 0 ? "D-Day" : "D-\(days)", color: days <= 7 ? .red : .secondary)
@@ -273,12 +350,12 @@ struct SubjectList: View {
             }
             Spacer(minLength: Theme.Space.s)
             Text(formatHMS(time))
-                .font((compact ? Font.body : .title3).monospacedDigit())
+                .font((compact || mac ? Font.body : .title3).monospacedDigit())
                 .foregroundStyle(isCurrent ? Color.primary : (time > 0 ? Color.secondary : Color.secondary.opacity(0.5)))
         }
-        .frame(height: compact ? 40 : 52)
+        .frame(height: rowHeight)
         .padding(.horizontal, Theme.Space.s)
-        .background(isCurrent ? subject.color.opacity(0.14) : Color.clear,
+        .background(isCurrent ? (mac ? Color.primary.opacity(0.05) : subject.color.opacity(0.14)) : Color.clear,
                     in: RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous))
         .contentShape(Rectangle())
         .contextMenu {
@@ -295,6 +372,7 @@ struct SubjectList: View {
                 }
             }
             .pickerStyle(.inline)
+            SubjectIconMenu(subject: subject)
             Divider()
             Button("Delete", role: .destructive) { c.subjects.delete(subject) }
                 .disabled(isCurrent)
@@ -314,7 +392,7 @@ struct SubjectList: View {
                 }
             }
             .padding(.horizontal, Theme.Space.s)
-            .frame(height: compact ? 40 : 52)
+            .frame(height: rowHeight)
         } else {
             Button { adding = true } label: {
                 Label("Add Subject", systemImage: "plus")
@@ -322,7 +400,7 @@ struct SubjectList: View {
             }
             .buttonStyle(.borderless)
             .padding(.horizontal, Theme.Space.s)
-            .frame(height: compact ? 36 : 44)
+            .frame(height: mac ? (compact ? 30 : 34) : (compact ? 36 : 44))
         }
     }
 
@@ -415,6 +493,19 @@ struct RunningControls: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.l) {
+            if Theme.mac {
+                // The buttons are in the toolbar.
+                HStack(spacing: Theme.Space.s) {
+                    StatusBadge(status: c.phase.isBreak ? .onBreak : c.status)
+                    Spacer()
+                    if case .onBreak(let until) = c.phase {
+                        TimelineView(.periodic(from: .now, by: 1)) { context in
+                            Text("Break ends in \(formatClock(max(0, until.timeIntervalSince(context.date))))")
+                                .monospacedDigit().foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            } else {
             HStack(spacing: Theme.Space.s) {
                 StatusBadge(status: c.status)
                 Spacer()
@@ -432,9 +523,11 @@ struct RunningControls: View {
                 }
                 Button("End Session") { c.requestEnd() }
             }
+            }
             if c.status == .phone, !c.evidence.explanation.isEmpty {
                 Text(c.evidence.explanation).font(.callout).foregroundStyle(.secondary)
             }
+            if Theme.mac { Divider() }
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: Theme.Space.s), count: 5), spacing: Theme.Space.s) {
                 StatTile(title: "Session", value: formatClock(c.elapsed))
                 StatTile(title: "Phone", value: formatDuration(c.phoneTime))
@@ -533,5 +626,21 @@ struct GoalPicker: View {
         }
         .fixedSize()
         .help("Minutes of actual study for this session. Distractions extend it.")
+    }
+}
+
+/// Context menu: an icon for the subject, shown instead of (or next to) its coloured dot.
+struct SubjectIconMenu: View {
+    @EnvironmentObject var c: SessionController
+    let subject: Subject
+    var body: some View {
+        Picker("Icon", selection: Binding(
+            get: { subject.symbol ?? "" },
+            set: { var s = subject; s.symbol = $0.isEmpty ? nil : $0; c.subjects.update(s) })) {
+            Text("None").tag("")
+            ForEach(SubjectSymbols.all, id: \.symbol) { item in
+                Label(item.name, systemImage: item.symbol).tag(item.symbol)
+            }
+        }
     }
 }

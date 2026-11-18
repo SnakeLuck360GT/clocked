@@ -16,7 +16,9 @@ struct Subject: Codable, Identifiable, Hashable {
         return days >= 0 ? days : nil
     }
 
-    var color: Color { Color(hex: colorHex) }
+    /// Optional SF Symbol shown instead of the coloured dot.
+    var symbol: String?
+
 
     /// Spread around the colour wheel so neighbouring subjects never look alike (and away from the orange accent).
     static let palette = ["#4C6EF5", "#20C997", "#845EF7", "#FAB005", "#F06595", "#22B8CF", "#51CF66", "#FF6B6B"]

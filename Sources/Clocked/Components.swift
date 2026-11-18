@@ -10,13 +10,20 @@ extension SessionController.Phase {
 struct StatusBadge: View {
     let status: FocusStatus
     var body: some View {
-        Label(status.title, systemImage: status.symbol)
-            .font(.callout.weight(.medium))
-            .lineLimit(1)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
-            .background(tint.opacity(0.14), in: Capsule())
-            .foregroundStyle(tint)
+        if Theme.mac {
+            // A plain label with a coloured symbol, like status lines in system apps.
+            Label { Text(status.title) } icon: { Image(systemName: status.symbol).foregroundStyle(tint) }
+                .font(.callout)
+                .lineLimit(1)
+        } else {
+            Label(status.title, systemImage: status.symbol)
+                .font(.callout.weight(.medium))
+                .lineLimit(1)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(tint.opacity(0.14), in: Capsule())
+                .foregroundStyle(tint)
+        }
     }
     private var tint: Color {
         if status.isDistracted { return Theme.warning }
@@ -32,13 +39,21 @@ struct StatTile: View {
     let title: String
     let value: String
     var body: some View {
-        VStack(spacing: 2) {
-            Text(value).font(.title2.weight(.semibold).monospacedDigit()).lineLimit(1).minimumScaleFactor(0.6)
-            Text(title).font(.caption).foregroundStyle(.secondary)
+        if Theme.mac {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.caption).foregroundStyle(.secondary)
+                Text(value).font(.title3.monospacedDigit()).lineLimit(1).minimumScaleFactor(0.6)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        } else {
+            VStack(spacing: 2) {
+                Text(value).font(.title2.weight(.semibold).monospacedDigit()).lineLimit(1).minimumScaleFactor(0.6)
+                Text(title).font(.caption).foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, Theme.Space.s)
+            .background(Theme.raised.opacity(0.6), in: RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous))
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, Theme.Space.s)
-        .background(Theme.raised.opacity(0.6), in: RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous))
     }
 }
 

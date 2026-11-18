@@ -245,6 +245,22 @@ final class SessionController: ObservableObject {
 
     /// Which section of the main window is showing (so ⌘, and the menu-bar popover can jump to Settings).
     @Published var selectedPane: Pane? = .today
+    /// Which pane the separate Settings window shows (Mac style).
+    @Published var settingsPane: Pane = .general
+    /// Asks MenuBarLabel, which always exists, to open a window. The counter lets the same window be asked for again.
+    struct WindowRequest: Equatable { var id = ""; var count = 0 }
+    @Published var windowRequest = WindowRequest()
+
+    /// Opens Settings at `pane`: in the main window's sidebar (Classic) or in the Settings window (Mac).
+    func showSettings(_ pane: Pane = .general) {
+        if settings.interfaceStyle == .mac {
+            settingsPane = pane
+            windowRequest = WindowRequest(id: "settings", count: windowRequest.count + 1)
+        } else {
+            selectedPane = pane
+            windowRequest = WindowRequest(id: "main", count: windowRequest.count + 1)
+        }
+    }
 
     /// Latest analysed frame with geometry, only while the Developer View is open.
     @Published var debugFrame: DebugFrame?

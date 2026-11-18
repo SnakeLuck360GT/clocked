@@ -24,6 +24,14 @@ struct ClockedApp: App {
             }
         }
 
+        // Mac style: Settings in their own window, like System Settings.
+        Window("\(AppInfo.name) Settings", id: "settings") {
+            Themed { SettingsWindow() }.environmentObject(controller)
+        }
+        .defaultSize(width: 760, height: 560)
+        .defaultLaunchBehavior(.suppressed)
+        .restorationBehavior(.disabled)
+
         Window("Developer View", id: "developer") {
             Themed { DeveloperView() }.environmentObject(controller)
         }
@@ -62,6 +70,11 @@ struct MenuBarLabel: View {
                     openWindow(id: "focus")
                 }
             }
+            .onChange(of: c.windowRequest) { _, request in
+                NSApp.setActivationPolicy(.regular)
+                openWindow(id: request.id)
+                NSApp.activate()
+            }
     }
 
     @ViewBuilder private var label: some View {
@@ -69,7 +82,7 @@ struct MenuBarLabel: View {
             // Filled stopwatch while focused; the status symbol (phone, away, break…) otherwise.
             HStack(spacing: 4) {
                 if c.phase == .running, !c.studyClockPaused {
-                    Image(nsImage: Icons.menuBarActive)
+                    settings.menuBarIcon.image(active: true)
                 } else {
                     Image(systemName: c.menuSymbol)
                 }
@@ -81,7 +94,7 @@ struct MenuBarLabel: View {
                 }
             }
         } else {
-            Image(nsImage: Icons.menuBar)
+            settings.menuBarIcon.image(active: false)
         }
     }
 }
@@ -89,6 +102,7 @@ struct MenuBarLabel: View {
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         AppSettings.shared.applyAppearance()
+        AppIcon.apply()
     }
 
     /// Closing the main window leaves the app running in the menu bar.

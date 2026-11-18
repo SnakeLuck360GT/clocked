@@ -83,19 +83,40 @@ struct AppearanceSettings: View {
 
     var body: some View {
         Form {
-            Section("Theme") {
+            Section {
+                Picker("Style", selection: $settings.interfaceStyle) {
+                    ForEach(InterfaceStyle.allCases) { Text($0.title).tag($0) }
+                }
+                .pickerStyle(.segmented)
                 Picker("Appearance", selection: $settings.appearance) {
                     ForEach(AppearanceMode.allCases) { Text($0.title).tag($0) }
                 }
                 .pickerStyle(.segmented)
-                LabeledContent("Accent colour") {
-                    HStack(spacing: 10) {
-                        ForEach(AccentChoice.allCases) { choice in
-                            AccentSwatch(choice: choice, selected: settings.accent == choice) { settings.accent = choice }
-                        }
+            } header: {
+                Text("Interface")
+            } footer: {
+                Text(settings.interfaceStyle == .mac
+                     ? "Session controls in the toolbar, subjects in the sidebar, and Settings in their own window (⌘,)."
+                     : "The original Clocked look, with Settings in the sidebar.")
+            }
+            Section {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 92), spacing: 10)], spacing: 10) {
+                    ForEach(ThemePreset.allCases) { preset in
+                        ThemeSwatch(preset: preset, selected: settings.theme == preset) { settings.theme = preset }
                     }
                 }
+                .padding(.vertical, 4)
+                if settings.theme == .custom {
+                    ColorPicker("Accent colour", selection: hexBinding(\.customAccent), supportsOpacity: false)
+                    ColorPicker("Focus View, top", selection: hexBinding(\.customFocusTop), supportsOpacity: false)
+                    ColorPicker("Focus View, bottom", selection: hexBinding(\.customFocusBottom), supportsOpacity: false)
+                }
+            } header: {
+                Text("Theme")
+            } footer: {
+                Text("A theme sets the accent, the subject colours and the Focus View background.")
             }
+            AppIconSection()
             Section {
                 Picker("During a session, show", selection: $settings.timerShows) {
                     ForEach(TimerShows.allCases) { Text($0.title).tag($0) }
@@ -120,6 +141,11 @@ struct AppearanceSettings: View {
                 Toggle("Open when a session starts", isOn: $settings.openFocusOnStart)
             }
             Section("Menu Bar") {
+                Picker("Icon", selection: $settings.menuBarIcon) {
+                    ForEach(MenuBarIcon.allCases) { icon in
+                        Label { Text(icon.title) } icon: { icon.image(active: false) }.tag(icon)
+                    }
+                }
                 Picker("During a session, show", selection: $settings.menuBarShows) {
                     ForEach(MenuBarShows.allCases) { Text($0.title).tag($0) }
                 }
@@ -127,25 +153,99 @@ struct AppearanceSettings: View {
         }
         .formStyle(.grouped)
     }
+
+    private func hexBinding(_ key: ReferenceWritableKeyPath<AppSettings, String>) -> Binding<Color> {
+        Binding(get: { Color(hex: settings[keyPath: key]) }, set: { settings[keyPath: key] = $0.hexString })
+    }
 }
 
-private struct AccentSwatch: View {
-    let choice: AccentChoice
+/// A theme: its accent as a large dot, four of its subject colours beside it, and its name.
+private struct ThemeSwatch: View {
+    let preset: ThemePreset
     let selected: Bool
     let action: () -> Void
+
     var body: some View {
+        let colors = preset == .custom ? AppSettings.shared.customColors : preset.colors
         Button(action: action) {
-            Circle().fill(choice.color)
-                .frame(width: 18, height: 18)
-                .overlay(Circle().strokeBorder(.black.opacity(0.12)))
-                .overlay { if selected { Circle().fill(.white).frame(width: 6, height: 6) } }
-                .padding(2)
-                .overlay(Circle().strokeBorder(selected ? choice.color : .clear, lineWidth: 1.5))
+            VStack(spacing: 6) {
+                HStack(spacing: 3) {
+                    Circle().fill(colors.accent).frame(width: 22, height: 22)
+                    VStack(spacing: 3) {
+                        HStack(spacing: 3) { dot(colors.palette[0]); dot(colors.palette[1]) }
+                        HStack(spacing: 3) { dot(colors.palette[3]); dot(colors.palette[4]) }
+                    }
+                }
+                .padding(8)
+                .frame(maxWidth: .infinity)
+                .background(LinearGradient(colors: colors.night, startPoint: .top, endPoint: .bottom),
+                            in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .strokeBorder(selected ? Theme.accent : Color.primary.opacity(0.1), lineWidth: selected ? 2 : 1))
+                Text(preset.title).font(.caption).foregroundStyle(selected ? .primary : .secondary)
+            }
         }
         .buttonStyle(.plain)
-        .help(choice.title)
-        .accessibilityLabel(choice.title)
+        .accessibilityLabel("\(preset.title) theme")
         .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    private func dot(_ color: Color) -> some View { Circle().fill(color).frame(width: 9, height: 9) }
+}
+
+/// The Dock icon: the Clocked mark in a few colours, or a picture of your own.
+private struct AppIconSection: View {
+    @ObservedObject var settings = AppSettings.shared
+    @State private var choosing = false
+    @State private var version = 0
+
+    var body: some View {
+        Section {
+            HStack(spacing: 14) {
+                ForEach(AppIconChoice.allCases) { choice in
+                    Button {
+                        if choice == .custom && !AppIcon.hasCustom { choosing = true } else { settings.appIcon = choice }
+                    } label: {
+                        VStack(spacing: 4) {
+                            Group {
+                                if choice == .custom && !AppIcon.hasCustom {
+                                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                        .strokeBorder(Color.secondary.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                                        .overlay(Image(systemName: "plus").foregroundStyle(.secondary))
+                                        .padding(6)
+                                } else {
+                                    Image(nsImage: AppIcon.preview(choice)).resizable().id(version)
+                                }
+                            }
+                            .frame(width: 56, height: 56)
+                            .padding(3)
+                            .background(settings.appIcon == choice ? Theme.accent.opacity(0.18) : .clear,
+                                        in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            Text(choice.title).font(.caption).foregroundStyle(settings.appIcon == choice ? .primary : .secondary)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("\(choice.title) icon")
+                }
+            }
+            .padding(.vertical, 4)
+            if settings.appIcon == .custom || AppIcon.hasCustom {
+                Button("Choose Image…") { choosing = true }
+            }
+        } header: {
+            Text("App Icon")
+        } footer: {
+            Text("Shown in the Dock while Clocked is open. macOS doesn't let an app change its icon in Finder.")
+        }
+        .fileImporter(isPresented: $choosing, allowedContentTypes: [.image]) { result in
+            guard case .success(let url) = result else { return }
+            let scoped = url.startAccessingSecurityScopedResource()
+            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+            if AppIcon.saveCustom(from: url) {
+                version += 1
+                if settings.appIcon == .custom { AppIcon.apply() } else { settings.appIcon = .custom }
+            }
+        }
     }
 }
 
