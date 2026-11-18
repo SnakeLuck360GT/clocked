@@ -341,6 +341,7 @@ final class SessionController: ObservableObject {
         judge.prewarm()
         sessionStart = Date()
         lastTick = Date()
+        lastTickUptime = ProcessInfo.processInfo.systemUptime
         phase = .running
         status = .neutral
         startSensors()
@@ -369,6 +370,7 @@ final class SessionController: ObservableObject {
         phase = .running
         status = .neutral
         lastTick = Date()
+        lastTickUptime = ProcessInfo.processInfo.systemUptime
         evidence.reset()
         startSensors()
     }
